@@ -1,0 +1,8 @@
+{
+  "name": "Date with Idol",
+  "description": "A 3D K-Pop Fantasy Social Experience. Immerse yourself in a luxury fan universe with emotionally intimate encounters, cinematic dates, and AI-powered interactions.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
