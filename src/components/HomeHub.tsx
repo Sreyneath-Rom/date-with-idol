@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { MessageSquare, Heart, Camera, Shirt, Home, Sparkles, Clock, MapPin } from 'lucide-react';
+import { MessageSquare, Heart, Camera, Shirt, Home, Sparkles, Clock, MapPin, Cloud, LogOut } from 'lucide-react';
 import { Idol, AppView } from '../types';
+import { useFirebase } from '../lib/FirebaseContext';
 
 interface Props {
   idol: Idol;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function HomeHub({ idol, onNavigate, affection }: Props) {
+  const { user, loginWithGoogle, logout } = useFirebase();
   const [time, setTime] = useState(new Date());
   const [greeting, setGreeting] = useState('');
 
@@ -49,7 +51,7 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
       </div>
 
       {/* Top Section: Dynamic Info */}
-      <header className="relative z-10 px-6 pt-10 md:px-12 md:pt-16 flex justify-between items-start">
+      <header className="relative z-10 px-6 pt-10 md:px-12 md:pt-16 flex justify-between items-center">
         <motion.div 
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
@@ -64,24 +66,73 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
           <h2 className="text-xs md:text-sm font-medium text-white/50 max-w-[150px] md:max-w-none line-clamp-2 md:line-clamp-none leading-relaxed">{greeting}</h2>
         </motion.div>
 
-        <motion.div 
-          initial={{ x: 20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          className="glass-gold p-2 md:p-3 rounded-xl md:rounded-2xl flex items-center gap-2 md:gap-3 border-luxury-magenta/30 cursor-pointer hover:scale-105 transition-transform"
-        >
-          <div className="relative">
-            <Heart className="w-4 h-4 md:w-5 md:h-5 text-luxury-magenta fill-luxury-magenta/20" />
-            <motion.div 
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ repeat: Infinity, duration: 2 }}
-              className="absolute inset-0 bg-luxury-magenta/20 blur-md rounded-full" 
-            />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[7px] md:text-[8px] uppercase tracking-wider text-luxury-magenta font-bold leading-none mb-0.5">Bond</span>
-            <span className="text-xs md:text-sm font-display font-bold leading-none">{affection}%</span>
-          </div>
-        </motion.div>
+        <div className="flex items-center gap-2 md:gap-3">
+          {/* Real-time Firebase Sync Controls */}
+          <motion.button
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            onClick={user ? logout : loginWithGoogle}
+            className={`glass p-2 md:p-3 rounded-xl md:rounded-2xl flex items-center gap-2 border transition-all cursor-pointer hover:scale-105 active:scale-95 ${
+              user 
+                ? 'border-green-500/30 hover:bg-rose-500/10 hover:border-rose-500/30 group' 
+                : 'border-luxury-gold/25 hover:border-luxury-gold/50'
+            }`}
+            title={user ? "Logout & Unsync Session" : "Sign In with Google to synchronize chats & affinity scores to Firebase Cloud!"}
+          >
+            {user ? (
+              <>
+                <img 
+                  src={user.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150'} 
+                  referrerPolicy="no-referrer"
+                  className="w-4 h-4 md:w-5 md:h-5 rounded-full object-cover group-hover:hidden animate-fade-in"
+                  alt="avatar"
+                />
+                <LogOut className="w-4 h-4 md:w-5 md:h-5 text-rose-400 hidden group-hover:block transition-colors animate-fade-in" />
+                <div className="flex flex-col text-left group-hover:text-rose-400">
+                  <span className="text-[6px] md:text-[8px] uppercase tracking-wider text-green-400 font-bold leading-none mb-0.5 group-hover:text-rose-400">Synced</span>
+                  <span className="text-[10px] font-display font-medium leading-none max-w-[60px] md:max-w-[100px] truncate">
+                    {user.displayName?.split(' ')[0] || 'Sync'}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="relative">
+                  <Cloud className="w-4 h-4 md:w-5 md:h-5 text-luxury-gold" />
+                  <motion.div 
+                    animate={{ opacity: [0.4, 1, 0.4] }}
+                    transition={{ repeat: Infinity, duration: 1.5 }}
+                    className="absolute inset-0 bg-luxury-gold/10 blur-sm rounded-full" 
+                  />
+                </div>
+                <div className="flex flex-col text-left">
+                  <span className="text-[6px] md:text-[8px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5">Offline</span>
+                  <span className="text-[10px] font-display font-semibold leading-none text-luxury-gold">Cloud Sync</span>
+                </div>
+              </>
+            )}
+          </motion.button>
+
+          <motion.div 
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            className="glass-gold p-2 md:p-3 rounded-xl md:rounded-2xl flex items-center gap-2 md:gap-3 border-luxury-magenta/30 hover:scale-105 transition-transform"
+          >
+            <div className="relative">
+              <Heart className="w-4 h-4 md:w-5 md:h-5 text-luxury-magenta fill-luxury-magenta/20" />
+              <motion.div 
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ repeat: Infinity, duration: 2 }}
+                className="absolute inset-0 bg-luxury-magenta/20 blur-md rounded-full" 
+              />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[7px] md:text-[8px] uppercase tracking-wider text-luxury-magenta font-bold leading-none mb-0.5">Bond</span>
+              <span className="text-xs md:text-sm font-display font-bold leading-none">{affection}%</span>
+            </div>
+          </motion.div>
+        </div>
       </header>
 
       {/* Center: Idol Presence */}

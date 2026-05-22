@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "Represents the player profile in the game",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the player"
+        },
+        "selectedIdolId": {
+          "type": "string",
+          "description": "The ID of the currently selected K-pop idol"
+        },
+        "affection": {
+          "type": "integer",
+          "description": "The current affection level of the player with the selected idol"
+        }
+      },
+      "required": [
+        "name",
+        "selectedIdolId",
+        "affection"
+      ]
+    },
+    "chat_message": {
+      "title": "Chat Message",
+      "description": "A single text, voice, or image chat message",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "sender": {
+          "type": "string",
+          "enum": [
+            "idol",
+            "player"
+          ]
+        },
+        "text": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "integer"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "text",
+            "voice",
+            "image"
+          ]
+        },
+        "imageUrl": {
+          "type": "string"
+        },
+        "audioUrl": {
+          "type": "string"
+        },
+        "audioDuration": {
+          "type": "integer"
+        },
+        "reaction": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "sender",
+        "text",
+        "timestamp",
+        "type"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User profile document"
+    },
+    "/users/{userId}/chats/{idolId}/messages/{messageId}": {
+      "schema": "chat_message",
+      "description": "Message log in the chat room with a specific idol"
+    }
+  }
+}

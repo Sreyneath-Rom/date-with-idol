@@ -4,6 +4,10 @@ import { Send, Image as ImageIcon, Mic, ChevronLeft, MoreVertical, Heart, Sparkl
 import { Idol, ChatMessage } from '../types';
 import { IDOLS } from '../constants';
 import { playSentSound, playReceivedSound, startRingtoneLoop, stopRingtoneLoop, playCallEndSound, speakText } from '../utils/audio';
+import VoiceMessagePlayer from './VoiceMessagePlayer';
+import { useFirebase } from '../lib/FirebaseContext';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { collection, query, orderBy, onSnapshot, setDoc, doc, deleteDoc } from 'firebase/firestore';
 
 interface Props {
   idol: Idol;
@@ -11,6 +15,7 @@ interface Props {
 }
 
 export default function ChatRoom({ idol, onBack }: Props) {
+  const { user } = useFirebase();
   const [currentIdol, setCurrentIdol] = useState<Idol>(idol);
   const [activeView, setActiveView] = useState<'list' | 'room'>('list');
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,6 +32,15 @@ export default function ChatRoom({ idol, onBack }: Props) {
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Voice recording states and refs
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingIntervalIdRef = useRef<any>(null);
 
   const handleFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -69,34 +83,93 @@ export default function ChatRoom({ idol, onBack }: Props) {
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // Load / Subscribe to Messages (Firebase Real-Time vs localStorage)
   useEffect(() => {
-    const saved = localStorage.getItem(`kpop_idol_chat_${currentIdol.id}`);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed);
-          return;
+    if (user) {
+      const messagesCollPath = `users/${user.uid}/chats/${currentIdol.id}/messages`;
+      const q = query(
+        collection(db, 'users', user.uid, 'chats', currentIdol.id, 'messages'),
+        orderBy('timestamp', 'asc')
+      );
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (snapshot.empty) {
+          // Put the initial welcome message into Firestore
+          const welcomeMsg: ChatMessage = {
+            id: '1',
+            sender: 'idol',
+            text: `Hey. I was just thinking about you. Did you sleep well?`,
+            timestamp: Date.now() - 30000,
+            type: 'text'
+          };
+          setDoc(doc(db, 'users', user.uid, 'chats', currentIdol.id, 'messages', '1'), welcomeMsg)
+            .catch(err => handleFirestoreError(err, OperationType.WRITE, `${messagesCollPath}/1`));
+        } else {
+          const loaded: ChatMessage[] = [];
+          snapshot.forEach((doc) => {
+            loaded.push(doc.data() as ChatMessage);
+          });
+          setMessages(loaded);
         }
-      } catch (e) {
-        console.error("Error parsing saved chat history:", e);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.GET, messagesCollPath);
+      });
+
+      return () => unsubscribe();
+    } else {
+      const saved = localStorage.getItem(`kpop_idol_chat_${currentIdol.id}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed);
+            return;
+          }
+        } catch (e) {
+          console.error("Error parsing saved chat history:", e);
+        }
       }
+      setMessages([{
+        id: '1',
+        sender: 'idol',
+        text: `Hey. I was just thinking about you. Did you sleep well?`,
+        timestamp: Date.now() - 30000,
+        type: 'text'
+      }]);
     }
-    // Default welcome message
-    setMessages([{
-      id: '1',
-      sender: 'idol', 
-      text: `Hey. I was just thinking about you. Did you sleep well?`,
-      timestamp: Date.now() - 30000,
-      type: 'text'
-    }]);
-  }, [currentIdol.id]);
+  }, [currentIdol.id, user]);
 
   useEffect(() => {
-    if (messages.length > 0) {
+    if (!user && messages.length > 0) {
       localStorage.setItem(`kpop_idol_chat_${currentIdol.id}`, JSON.stringify(messages));
     }
-  }, [messages, currentIdol.id]);
+  }, [messages, currentIdol.id, user]);
+
+  const writeMessage = async (msg: ChatMessage) => {
+    if (user) {
+      const messagesCollPath = `users/${user.uid}/chats/${currentIdol.id}/messages`;
+      try {
+        await setDoc(doc(db, 'users', user.uid, 'chats', currentIdol.id, 'messages', msg.id), msg);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `${messagesCollPath}/${msg.id}`);
+      }
+    } else {
+      setMessages(prev => [...prev, msg]);
+    }
+  };
+
+  const updateMessageReaction = async (msgId: string, emoji: string) => {
+    if (user) {
+      const messagesCollPath = `users/${user.uid}/chats/${currentIdol.id}/messages`;
+      try {
+        await setDoc(doc(db, 'users', user.uid, 'chats', currentIdol.id, 'messages', msgId), { reaction: emoji }, { merge: true });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `${messagesCollPath}/${msgId}`);
+      }
+    } else {
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, reaction: emoji } : m));
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -255,7 +328,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
       type: 'text'
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    await writeMessage(userMsg);
 
     try {
       const response = await fetch('/api/chat', {
@@ -271,22 +344,174 @@ export default function ChatRoom({ idol, onBack }: Props) {
 
       const data = await response.json();
       
-      setTimeout(() => {
+      setTimeout(async () => {
         setIsTyping(false);
         playReceivedSound();
-        setMessages(prev => [...prev, {
+        await writeMessage({
           id: (Date.now() + 1).toString(),
           sender: 'idol',
           text: data.text || "Here is a cute polaroid portrait I just took for you! 💖",
           timestamp: Date.now(),
           type: 'image',
           imageUrl: currentIdol.image
-        }]);
+        });
       }, 1500);
       
     } catch (error) {
       console.error(error);
       setIsTyping(false);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const options = { mimeType: 'audio/webm' };
+      let recorder: MediaRecorder;
+      try {
+        recorder = new MediaRecorder(stream, options);
+      } catch (e) {
+        // Fallback for Safari etc.
+        recorder = new MediaRecorder(stream);
+      }
+      
+      mediaRecorderRef.current = recorder;
+      
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+        // Stop all tracks on the stream
+        stream.getTracks().forEach(track => track.stop());
+        
+        // Use latest closure/state value for duration or read duration dynamically
+        const recordedDur = recordingDuration;
+        // Check if there is anything recorded
+        if (audioChunksRef.current.length > 0) {
+          await sendVoiceMessage(audioBlob);
+        }
+      };
+
+      setRecordingDuration(0);
+      setIsRecording(true);
+      recorder.start();
+      
+      let secondsCount = 0;
+      recordingIntervalIdRef.current = setInterval(() => {
+        secondsCount++;
+        setRecordingDuration(secondsCount);
+        if (secondsCount >= 15) {
+          // Reached max 15s limit - stop recording automatically
+          if (recordingIntervalIdRef.current) {
+            clearInterval(recordingIntervalIdRef.current);
+            recordingIntervalIdRef.current = null;
+          }
+          if (recorder && recorder.state !== 'inactive') {
+            recorder.stop();
+          }
+          setIsRecording(false);
+        }
+      }, 1000);
+
+    } catch (err) {
+      console.error("Failed to start voice message recording:", err);
+    }
+  };
+
+  const stopRecording = () => {
+    if (recordingIntervalIdRef.current) {
+      clearInterval(recordingIntervalIdRef.current);
+      recordingIntervalIdRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+  };
+
+  const cancelRecording = () => {
+    if (recordingIntervalIdRef.current) {
+      clearInterval(recordingIntervalIdRef.current);
+      recordingIntervalIdRef.current = null;
+    }
+    audioChunksRef.current = [];
+    if (mediaRecorderRef.current) {
+      if (mediaRecorderRef.current.state !== 'inactive') {
+        // Prevent sending on un-intended onstop trigger
+        mediaRecorderRef.current.onstop = () => {
+          if (mediaRecorderRef.current?.stream) {
+            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+          }
+        };
+        mediaRecorderRef.current.stop();
+      }
+    }
+    setIsRecording(false);
+    setRecordingDuration(0);
+  };
+
+  const sendVoiceMessage = async (audioBlob: Blob) => {
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Url = reader.result as string; 
+        const durationSec = recordingDuration || 1; // Fallback to 1 if 0
+        
+        const userMsgId = Date.now().toString();
+        const userMsg: ChatMessage = {
+          id: userMsgId,
+          sender: 'player',
+          text: `🎤 Voice message (${durationSec}s)`,
+          timestamp: Date.now(),
+          type: 'voice',
+          audioUrl: base64Url,
+          audioDuration: durationSec
+        };
+
+        await writeMessage(userMsg);
+        playSentSound();
+        setIsTyping(true);
+
+        try {
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: `🎤 [User recorded and sent a ${durationSec}-second voice clip message]`,
+              idolName: currentIdol.name,
+              personality: currentIdol.personality,
+              history: getChatHistoryForAPI(messages)
+            })
+          });
+
+          const data = await response.json();
+          
+          setTimeout(async () => {
+            setIsTyping(false);
+            playReceivedSound();
+            await writeMessage({
+              id: (Date.now() + 1).toString(),
+              sender: 'idol',
+              text: data.text || `Hearing your sweet voice is my absolute favorite part of the day! It makes me feel so much closer to you, darling. 💖`,
+              timestamp: Date.now(),
+              type: 'text'
+            });
+          }, 1500);
+          
+        } catch (error) {
+          console.error("AI chat API failed on voice response:", error);
+          setIsTyping(false);
+        }
+      };
+      
+      reader.readAsDataURL(audioBlob);
+    } catch (e) {
+      console.error("Failed to process recorded audio blob:", e);
     }
   };
 
@@ -306,7 +531,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
     const sentInput = input;
     const sentImage = pendingImage;
 
-    setMessages(prev => [...prev, userMsg]);
+    await writeMessage(userMsg);
     playSentSound();
     setInput('');
     setPendingImage(null);
@@ -328,16 +553,16 @@ export default function ChatRoom({ idol, onBack }: Props) {
       const data = await response.json();
       
       // Artificial delay for "realism"
-      setTimeout(() => {
+      setTimeout(async () => {
         setIsTyping(false);
         playReceivedSound();
-        setMessages(prev => [...prev, {
+        await writeMessage({
           id: (Date.now() + 1).toString(),
           sender: 'idol',
           text: data.text,
           timestamp: Date.now(),
           type: 'text'
-        }]);
+        });
       }, 1500);
       
     } catch (error) {
@@ -553,16 +778,26 @@ export default function ChatRoom({ idol, onBack }: Props) {
                       </button>
                       <div className="h-[1px] bg-white/5 my-1" />
                       <button
-                        onClick={() => {
-                          const defaultMsg: ChatMessage[] = [{
+                        onClick={async () => {
+                          const defaultMsg: ChatMessage = {
                             id: '1',
                             sender: 'idol',
                             text: `Hey. I was just thinking about you. Did you sleep well?`,
                             timestamp: Date.now(),
                             type: 'text'
-                          }];
-                          setMessages(defaultMsg);
-                          localStorage.setItem(`kpop_idol_chat_${currentIdol.id}`, JSON.stringify(defaultMsg));
+                          };
+                          if (user) {
+                            // Purge history documents
+                            for (const m of messages) {
+                              deleteDoc(doc(db, 'users', user.uid, 'chats', currentIdol.id, 'messages', m.id))
+                                .catch(err => handleFirestoreError(err, OperationType.DELETE, `users/${user.uid}/chats/${currentIdol.id}/messages/${m.id}`));
+                            }
+                            // Re-seed welcome card
+                            await writeMessage(defaultMsg);
+                          } else {
+                            setMessages([defaultMsg]);
+                            localStorage.setItem(`kpop_idol_chat_${currentIdol.id}`, JSON.stringify([defaultMsg]));
+                          }
                           setShowMenu(false);
                         }}
                         className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-rose-500/10 text-xs text-rose-400 hover:text-rose-300 flex items-center gap-2 transition-colors font-medium"
@@ -627,9 +862,9 @@ export default function ChatRoom({ idol, onBack }: Props) {
                           {['❤️', '✨', '😍', '😘', '😭', '🔥'].map((emoji) => (
                             <button
                               key={emoji}
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
-                                setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, reaction: emoji } : m));
+                                await updateMessageReaction(msg.id, emoji);
                                 setActiveReactionMessageId(null);
                               }}
                               className="hover:scale-130 active:scale-95 transition-transform text-base md:text-lg px-1 md:px-1.5"
@@ -687,8 +922,18 @@ export default function ChatRoom({ idol, onBack }: Props) {
                       )
                     )}
 
-                    {/* Normal Message Text Rendering */}
-                    {!(msg.sender === 'idol' && msg.type === 'image') && (
+                    {/* Voice Message Player or Normal Text Rendering */}
+                    {msg.type === 'voice' && msg.audioUrl ? (
+                      <VoiceMessagePlayer 
+                        audioUrl={msg.audioUrl}
+                        sender={msg.sender}
+                        isActive={playingAudioId === msg.id}
+                        onPlay={() => setPlayingAudioId(msg.id)}
+                        onPause={() => {
+                          if (playingAudioId === msg.id) setPlayingAudioId(null);
+                        }}
+                      />
+                    ) : !(msg.sender === 'idol' && msg.type === 'image') && (
                       <p className="text-sm leading-relaxed overflow-hidden">
                         {msg.sender === 'idol' && idx === messages.length - 1 ? (
                           msg.text.split('').map((char, i) => (
@@ -713,7 +958,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
                         <span className="text-[8px] font-mono font-medium">
                           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                        {msg.sender === 'idol' && msg.type !== 'image' && (
+                        {msg.sender === 'idol' && msg.type !== 'image' && msg.type !== 'voice' && (
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -788,58 +1033,92 @@ export default function ChatRoom({ idol, onBack }: Props) {
               </motion.div>
             )}
 
-            <div className="flex items-center gap-2 md:gap-3">
-              <input 
-                type="file" 
-                id="chat-photo-attachments" 
-                className="hidden" 
-                accept="image/*"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    handleFile(e.target.files[0]);
-                  }
-                }}
-              />
-              <label 
-                htmlFor="chat-photo-attachments"
-                className="p-3 glass rounded-xl md:rounded-2xl text-luxury-gold hover:scale-115 active:scale-90 transition-transform cursor-pointer flex items-center justify-center shadow-lg"
-              >
-                <ImageIcon className="w-4 h-4 md:w-5 md:h-5" />
-              </label>
+            {isRecording ? (
+              <div className="flex items-center gap-2 w-full animate-pulse-soft">
+                <div className="flex-1 glass border border-luxury-magenta/30 px-4 py-3 rounded-xl md:rounded-2xl flex items-center justify-between shadow-[0_0_15px_rgba(255,51,119,0.15)] bg-luxury-black/60">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-ping" />
+                    <div className="text-[10px] md:text-xs font-bold text-white tracking-widest uppercase select-none">
+                      Recording Voice...
+                    </div>
+                    <div className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 border border-white/10 text-luxury-gold">
+                      {recordingDuration}s / 15s
+                    </div>
+                  </div>
 
-              <button 
-                onClick={requestSelfiePhotocard}
-                className="p-3 glass rounded-xl md:rounded-2xl text-luxury-gold hover:scale-115 active:scale-90 transition-all flex items-center justify-center gap-1.5 shadow-lg border border-luxury-gold/10"
-                title="Request Photocard Selfie"
-              >
-                <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-luxury-gold icon-pulse animate-pulse" />
-                <span className="hidden sm:inline text-[9px] uppercase tracking-widest font-black">Selfie</span>
-              </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={cancelRecording}
+                      className="px-3.5 py-1.5 text-[8px] uppercase tracking-widest font-black bg-white/5 hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 rounded-full border border-rose-500/20 transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
 
-              <div className="flex-1 glass rounded-xl md:rounded-2xl flex items-center px-3 md:px-4 overflow-hidden focus-within:border-luxury-gold/50 transition-all">
+                    <button
+                      onClick={stopRecording}
+                      className="px-4 py-1.5 text-[8px] uppercase tracking-widest font-black bg-luxury-magenta hover:bg-luxury-magenta/90 text-white rounded-full transition-all border border-luxury-magenta/20 flex items-center gap-1.5 cursor-pointer shadow-[0_0_15px_rgba(255,51,119,0.25)]"
+                    >
+                      <div className="w-1.5 h-1.5 bg-white rounded-sm" />
+                      Send Memo
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 md:gap-3">
                 <input 
-                  type="text" 
-                  placeholder={pendingImage ? "Type note for your picture (optional)..." : `Write to ${currentIdol.name}...`}
-                  className="flex-1 py-3 md:py-4 bg-transparent border-none outline-none text-xs md:text-sm font-medium placeholder:text-white/20"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                  type="file" 
+                  id="chat-photo-attachments" 
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleFile(e.target.files[0]);
+                    }
+                  }}
                 />
-                <button 
-                  onClick={startVoiceChat}
-                  className="text-white/20 hover:text-luxury-gold transition-colors"
+                <label 
+                  htmlFor="chat-photo-attachments"
+                  className="p-3 glass rounded-xl md:rounded-2xl text-luxury-gold hover:scale-115 active:scale-90 transition-transform cursor-pointer flex items-center justify-center shadow-lg"
                 >
-                  <Mic className="w-4 h-4 md:w-5 md:h-5" />
+                  <ImageIcon className="w-4 h-4 md:w-5 md:h-5" />
+                </label>
+
+                <button 
+                  onClick={requestSelfiePhotocard}
+                  className="p-3 glass rounded-xl md:rounded-2xl text-luxury-gold hover:scale-115 active:scale-90 transition-all flex items-center justify-center gap-1.5 shadow-lg border border-luxury-gold/10"
+                  title="Request Photocard Selfie"
+                >
+                  <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-luxury-gold icon-pulse animate-pulse" />
+                  <span className="hidden sm:inline text-[9px] uppercase tracking-widest font-black">Selfie</span>
+                </button>
+
+                <div className="flex-1 glass rounded-xl md:rounded-2xl flex items-center px-3 md:px-4 overflow-hidden focus-within:border-luxury-gold/50 transition-all">
+                  <input 
+                    type="text" 
+                    placeholder={pendingImage ? "Type note for your picture (optional)..." : `Write to ${currentIdol.name}...`}
+                    className="flex-1 py-3 md:py-4 bg-transparent border-none outline-none text-xs md:text-sm font-medium placeholder:text-white/20"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                  />
+                  <button 
+                    onClick={startRecording}
+                    className="text-white/20 hover:text-luxury-gold transition-colors"
+                    title="Record Voice Memo"
+                  >
+                    <Mic className="w-4 h-4 md:w-5 md:h-5" />
+                  </button>
+                </div>
+                <button 
+                  onClick={handleSend}
+                  disabled={!input.trim() && !pendingImage}
+                  className="p-3.5 md:p-4 bg-luxury-magenta text-white rounded-xl md:rounded-2xl hover:scale-115 active:scale-[0.9] transition-transform disabled:opacity-40 disabled:scale-100 shadow-[0_0_20px_rgba(255,51,119,0.3)]"
+                >
+                  <Send className="w-4 h-4 md:w-5 md:h-5" />
                 </button>
               </div>
-              <button 
-                onClick={handleSend}
-                disabled={!input.trim() && !pendingImage}
-                className="p-3.5 md:p-4 bg-luxury-magenta text-white rounded-xl md:rounded-2xl hover:scale-115 active:scale-[0.9] transition-transform disabled:opacity-40 disabled:scale-100 shadow-[0_0_20px_rgba(255,51,119,0.3)]"
-              >
-                <Send className="w-4 h-4 md:w-5 md:h-5" />
-              </button>
-            </div>
+            )}
           </footer>
         </>
       )}

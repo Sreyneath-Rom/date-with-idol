@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net (default deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Auth and identification helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // User Profile validation helper
+    function isValidUser(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && (data.selectedIdolId == null || (data.selectedIdolId is string && data.selectedIdolId.size() <= 128))
+        && data.affection is int && data.affection >= 0 && data.affection <= 100;
+    }
+
+    // Chat Message validation helper
+    function isValidChatMessage(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.sender is string && (data.sender == 'player' || data.sender == 'idol')
+        && data.text is string && data.text.size() <= 20000
+        && data.timestamp is int
+        && data.type is string && (data.type == 'text' || data.type == 'voice' || data.type == 'image')
+        && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 2048))
+        && (!('audioUrl' in data) || (data.audioUrl is string && data.audioUrl.size() <= 1048576))
+        && (!('audioDuration' in data) || (data.audioDuration is int && data.audioDuration >= 0 && data.audioDuration <= 15))
+        && (!('reaction' in data) || (data.reaction is string && data.reaction.size() <= 16));
+    }
+
+    // Match patterns for user documents
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId)
+                    && isValidId(userId)
+                    && isValidUser(incoming())
+                    && incoming().keys().hasAll(['name', 'selectedIdolId', 'affection'])
+                    && incoming().keys().size() == 3;
+                    
+      allow update: if isOwner(userId)
+                    && isValidUser(incoming())
+                    && (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'selectedIdolId', 'affection']));
+                    
+      allow delete: if isOwner(userId);
+
+      // Match patterns for messages log nested inside chats subcollection
+      match /chats/{idolId}/messages/{messageId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        
+        allow create: if isOwner(userId)
+                      && isValidId(idolId)
+                      && isValidId(messageId)
+                      && isValidChatMessage(incoming())
+                      && incoming().keys().hasAll(['id', 'sender', 'text', 'timestamp', 'type'])
+                      && incoming().keys().size() >= 5 
+                      && incoming().keys().size() <= 9;
+                      
+        allow update: if isOwner(userId)
+                      && isValidChatMessage(incoming())
+                      && (incoming().diff(existing()).affectedKeys().hasOnly(['reaction'])); // Only play with reactions after log is written
+                      
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

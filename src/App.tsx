@@ -13,24 +13,35 @@ import DateScene from './components/DateScene';
 import MemoryBook from './components/MemoryBook';
 import Closet from './components/Closet';
 import { Idol, AppView, UserProfile } from './types';
+import { useFirebase } from './lib/FirebaseContext';
+import { IDOLS } from './constants';
+import { useEffect } from 'react';
 
 export default function App() {
   const [view, setView] = useState<AppView>('intro');
   const [selectedIdol, setSelectedIdol] = useState<Idol | null>(null);
-  const [profile, setProfile] = useState<UserProfile>({
-    name: 'Player',
-    selectedIdolId: null,
-    affection: 12
-  });
+  const { profile, updateFirestoreProfile, user } = useFirebase();
+
+  // Keep selectedIdol synchronized with the user profile's chosen idol (from cloud or guest)
+  useEffect(() => {
+    if (profile.selectedIdolId) {
+      const match = IDOLS.find(i => i.id === profile.selectedIdolId);
+      if (match) {
+        setSelectedIdol(match);
+      }
+    } else {
+      setSelectedIdol(null);
+    }
+  }, [profile.selectedIdolId]);
 
   const handleIdolSelect = (idol: Idol) => {
     setSelectedIdol(idol);
-    setProfile(p => ({ ...p, selectedIdolId: idol.id }));
+    updateFirestoreProfile({ ...profile, selectedIdolId: idol.id });
     setView('hub');
   };
 
   const handleAffectionGain = (points: number) => {
-    setProfile(p => ({ ...p, affection: Math.min(100, p.affection + points) }));
+    updateFirestoreProfile({ ...profile, affection: Math.min(100, profile.affection + points) });
   };
 
   return (

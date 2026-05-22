@@ -20,6 +20,8 @@ export interface ChatMessage {
   timestamp: number;
   type: 'text' | 'voice' | 'image';
   imageUrl?: string;
+  audioUrl?: string;
+  audioDuration?: number;
   reaction?: string;
 }
 
