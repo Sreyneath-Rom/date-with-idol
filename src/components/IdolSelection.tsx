@@ -332,6 +332,20 @@ export default function IdolSelection({ onSelect }: Props) {
                             </h3>
                             <p className="text-luxury-gold text-[9px] md:text-[10px] tracking-[0.25em] uppercase font-bold font-display">{currentIdol.role}</p>
                           </div>
+
+                          <div className="pt-2">
+                            <button
+                              id={`select-idol-button-${currentIdol.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSelect(currentIdol);
+                                playSentSound();
+                              }}
+                              className="w-full py-2.5 md:py-3 rounded-2xl bg-gradient-to-r from-rose-500 via-pink-600 to-rose-500 text-white font-display font-black uppercase tracking-[0.25em] text-[10px] md:text-xs shadow-lg shadow-rose-500/10 hover:shadow-rose-500/25 hover:scale-[1.03] active:scale-[0.97] transition-all cursor-pointer border border-rose-400/25 flex items-center justify-center gap-1"
+                            >
+                              Select {currentIdol.name}
+                            </button>
+                          </div>
                         </div>
                       </div>
 

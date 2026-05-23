@@ -11,7 +11,7 @@ export interface Idol {
   difficulty: number;
 }
 
-export type AppView = 'intro' | 'selection' | 'hub' | 'chat' | 'date' | 'memories' | 'closet';
+export type AppView = 'intro' | 'selection' | 'hub' | 'chat' | 'date' | 'memories' | 'closet' | 'voicelab';
 
 export interface ChatMessage {
   id: string;

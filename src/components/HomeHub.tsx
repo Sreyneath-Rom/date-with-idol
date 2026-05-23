@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   MessageSquare, Heart, Camera, Shirt, Home, Sparkles, 
-  Clock, MapPin, Cloud, LogOut, Volume2, Award, Zap, Compass, Star
+  Clock, MapPin, Cloud, LogOut, Volume2, Award, Zap, Compass, Star, Mic
 } from 'lucide-react';
 import { Idol, AppView } from '../types';
 import { useFirebase } from '../lib/FirebaseContext';
@@ -367,6 +367,16 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
                   <Shirt size={12} className="text-emerald-400" /> Dress Up Closet
                 </span>
                 <span className="text-[9px] font-mono text-white/30 font-bold">&#10095;</span>
+              </button>
+
+              <button
+                onClick={() => { onNavigate('voicelab'); playReceivedSound(); }}
+                className="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-purple-500/10 to-indigo-500/10 hover:from-purple-500/20 hover:to-indigo-500/20 border border-purple-500/20 cursor-pointer text-left text-xs font-semibold uppercase tracking-wider text-purple-200/95 transition-all flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2">
+                  <Mic size={12} className="text-purple-400" /> AI Voice Lab
+                </span>
+                <span className="text-[9px] font-mono text-purple-400/80 font-bold">NEW • &#10095;</span>
               </button>
             </div>
           </div>

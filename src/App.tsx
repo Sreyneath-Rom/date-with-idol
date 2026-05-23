@@ -12,6 +12,7 @@ import ChatRoom from './components/ChatRoom';
 import DateScene from './components/DateScene';
 import MemoryBook from './components/MemoryBook';
 import Closet from './components/Closet';
+import VoiceLab from './components/VoiceLab';
 import { Idol, AppView, UserProfile } from './types';
 import { useFirebase } from './lib/FirebaseContext';
 import { IDOLS } from './constants';
@@ -129,6 +130,23 @@ export default function App() {
             className="fixed inset-0 z-[60]"
           >
             <Closet idol={selectedIdol} onBack={() => setView('hub')} />
+          </motion.div>
+        )}
+
+        {view === 'voicelab' && selectedIdol && (
+          <motion.div
+            key="voicelab"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed inset-0 z-[60]"
+          >
+            <VoiceLab 
+              idol={selectedIdol} 
+              onBack={() => setView('hub')} 
+              onNavigateToChat={() => setView('chat')}
+            />
           </motion.div>
         )}
       </AnimatePresence>

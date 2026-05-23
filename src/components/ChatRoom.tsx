@@ -460,14 +460,60 @@ export default function ChatRoom({ idol, onBack }: Props) {
 
     setGeneratingVoiceMessageId(msg.id);
     try {
-      const response = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text: msg.text, 
-          idolName: msg.senderName || currentIdol.name 
-        })
-      });
+      const isPlayer = msg.sender === 'player';
+      let response;
+
+      if (isPlayer) {
+        // Retrieve custom active clone details from localstorage or fall back to default prebuilt template
+        let activeClone: any = null;
+        try {
+          const savedActiveId = localStorage.getItem('active_voice_clone_id');
+          const savedClonesStr = localStorage.getItem('ai_voice_clones');
+          const PREBUILT_CLONES = [
+            { id: 'prebuilt-sweet-lover', name: 'Mina Style (Soft ASMR)', gender: 'female', age: 'young', pitch: 12, accent: 'Whisper ASMR', stability: 85, clarity: 92, provider: 'sandbox', voiceId: 'sandbox-sweet-lover' },
+            { id: 'prebuilt-popstar', name: 'Nayeon Style (Sassy Pop)', gender: 'female', age: 'young', pitch: 20, accent: 'Sassy Popstar', stability: 78, clarity: 88, provider: 'sandbox', voiceId: 'sandbox-popstar' },
+            { id: 'prebuilt-mature-oppa', name: 'Warm Friend (Calm Tone)', gender: 'male', age: 'mature', pitch: -22, accent: 'Standard US English', stability: 90, clarity: 95, provider: 'sandbox', voiceId: 'sandbox-mature-oppa' }
+          ];
+          
+          let allClones = [...PREBUILT_CLONES];
+          if (savedClonesStr) {
+            const savedClones = JSON.parse(savedClonesStr);
+            allClones = [...PREBUILT_CLONES, ...savedClones];
+          }
+
+          activeClone = allClones.find(c => c.id === savedActiveId) || PREBUILT_CLONES[0];
+        } catch (_) {}
+
+        if (!activeClone) {
+          activeClone = { id: 'prebuilt-sweet-lover', name: 'Mina Style (Soft ASMR)', gender: 'female', age: 'young', pitch: 12, accent: 'Whisper ASMR', stability: 85, clarity: 92, provider: 'sandbox', voiceId: 'sandbox-sweet-lover' };
+        }
+
+        response = await fetch('/api/voice-clone/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: msg.text.replace(/🎙️ Sent voice clip: /, "").replace(/"/g, ''),
+            voiceName: activeClone.name,
+            gender: activeClone.gender,
+            age: activeClone.age,
+            pitch: activeClone.pitch,
+            accent: activeClone.accent,
+            stability: activeClone.stability,
+            clarity: activeClone.clarity,
+            voiceId: activeClone.voiceId
+          })
+        });
+      } else {
+        response = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            text: msg.text, 
+            idolName: msg.senderName || currentIdol.name 
+          })
+        });
+      }
+
       const data = await response.json();
       if (data.audio) {
         const mimeType = data.mimeType || "audio/wav";
@@ -475,7 +521,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
         await updateMessageAudio(msg.id, fullAudioUrl);
         setPlayingAudioId(msg.id);
       } else {
-        console.warn("[ChatRoom] Premium voice fell back:", data.error || "No audio data");
+        console.warn("[ChatRoom] API voice fell back:", data.error || "No audio data");
         speakText(msg.text, msg.senderName || currentIdol.name);
       }
     } catch (e) {
@@ -1944,8 +1990,8 @@ export default function ChatRoom({ idol, onBack }: Props) {
                       )}
 
                       {/* Dynamic Timestamp or Sound Read-aloud speaker action */}
-                      <div className={`flex items-center gap-2 mt-1.5 opacity-30 ${msg.sender === 'player' ? 'justify-end' : 'justify-between'} ${msg.sender === 'idol' && msg.type === 'image' ? 'text-black/50 justify-center' : ''}`}>
-                        <div className="flex items-center gap-1.5">
+                      <div className={`flex items-center gap-2 mt-1.5 opacity-30 hover:opacity-100 transition-opacity duration-200 ${msg.sender === 'player' ? 'justify-end' : 'justify-between'} ${msg.sender === 'idol' && msg.type === 'image' ? 'text-black/50 justify-center' : ''}`}>
+                        <div className="flex items-center gap-1.5 font-sans">
                           <span className="text-[8px] font-mono font-medium">
                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
@@ -1994,6 +2040,36 @@ export default function ChatRoom({ idol, onBack }: Props) {
                                 ) : (
                                   <span className="text-[7.5px] font-sans font-black tracking-widest text-[8px] uppercase bg-rose-500/10 hover:bg-rose-500/20 px-1.5 py-0.5 rounded-full border border-rose-500/20 text-rose-300 transition-colors">
                                     🎙️ AI
+                                  </span>
+                                )}
+                              </button>
+                            </div>
+                          )}
+
+                          {msg.sender === 'player' && msg.type !== 'image' && msg.type !== 'voice' && (
+                            <div className="flex items-center gap-1">
+                              {/* Cloned Voice generator */}
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  triggerHaptic(12);
+                                  handleGenerateAIVoice(msg);
+                                }}
+                                disabled={generatingVoiceMessageId === msg.id}
+                                className={`hover:scale-105 transition-all p-1 rounded-full cursor-pointer inline-flex items-center justify-center text-purple-400 hover:text-purple-300 ${
+                                  generatingVoiceMessageId === msg.id ? 'animate-pulse' : ''
+                                }`}
+                                title={msg.audioUrl ? "Play Real Voice Cloned Track" : "Generate Custom AI Voice Clone"}
+                              >
+                                {generatingVoiceMessageId === msg.id ? (
+                                  <motion.div 
+                                    animate={{ rotate: 360 }}
+                                    transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                                    className="w-3.5 h-3.5 border-2 border-purple-500 border-t-transparent rounded-full"
+                                  />
+                                ) : (
+                                  <span className="text-[7.5px] font-sans font-black tracking-widest uppercase bg-purple-500/15 hover:bg-purple-500/25 px-1.5 py-0.5 rounded-full border border-purple-500/20 text-purple-300 transition-colors">
+                                    🎙️ CLONE
                                   </span>
                                 )}
                               </button>
