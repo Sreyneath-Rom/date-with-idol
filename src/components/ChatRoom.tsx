@@ -71,6 +71,24 @@ const getEstimatedReadTime = (text: string) => {
   }
 };
 
+function cleanObject<T extends Record<string, any>>(obj: T): T {
+  const result: any = {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const val = obj[key];
+      if (val === undefined) {
+        continue;
+      }
+      if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+        result[key] = cleanObject(val);
+      } else {
+        result[key] = val;
+      }
+    }
+  }
+  return result;
+}
+
 export default function ChatRoom({ idol, onBack }: Props) {
   const { user } = useFirebase();
   const [currentIdol, setCurrentIdol] = useState<Idol>(idol);
@@ -310,7 +328,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
             timestamp: Date.now() - 30000,
             type: 'text'
           };
-          setDoc(doc(db, 'users', user.uid, 'chats', chatId, 'messages', '1'), welcomeMsg)
+          setDoc(doc(db, 'users', user.uid, 'chats', chatId, 'messages', '1'), cleanObject(welcomeMsg))
             .catch(err => handleFirestoreError(err, OperationType.WRITE, `${messagesCollPath}/1`));
         } else {
           const loaded: ChatMessage[] = [];
@@ -367,7 +385,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
     if (user) {
       const messagesCollPath = `users/${user.uid}/chats/${chatId}/messages`;
       try {
-        await setDoc(doc(db, 'users', user.uid, 'chats', chatId, 'messages', msg.id), msg);
+        await setDoc(doc(db, 'users', user.uid, 'chats', chatId, 'messages', msg.id), cleanObject(msg));
       } catch (err) {
         handleFirestoreError(err, OperationType.WRITE, `${messagesCollPath}/${msg.id}`);
       }
@@ -1227,7 +1245,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
       {activeView === 'list' ? (
         <>
           {/* Header of Inbox */}
-          <header className="glass p-4 md:p-6 pt-8 md:pt-12 flex flex-col gap-4 z-10 border-b border-white/5">
+          <header className="glass px-4 md:px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] md:pt-12 pb-4 md:pb-6 flex flex-col gap-4 z-10 border-b border-white/5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <button onClick={onBack} className="p-2 -ml-2 text-white/60 hover:text-white transition-colors animate-fade-in" title="Back to Hub">
@@ -1276,7 +1294,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
           </header>
 
           {/* Inbox Main List */}
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+          <main className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-4">
             {/* Search Filter Panel */}
             {activeTab === 'direct' && (
               <div className="relative animate-fade-in">
@@ -1411,7 +1429,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
         </>
       ) : (
         <>
-          <header className="glass p-3.5 md:p-6 pt-8 md:pt-12 flex items-center justify-between z-10 border-b border-white/5">
+          <header className="glass px-3.5 md:px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] md:pt-12 pb-3.5 md:pb-6 flex items-center justify-between z-10 border-b border-white/5">
             <div className="flex items-center gap-3 md:gap-4">
               <button 
                 onClick={() => { playCallEndSound(); setActiveView('list'); }} 
@@ -1589,7 +1607,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
           {/* Messages Scroll Feed */}
           <main 
             ref={scrollRef}
-            className="flex-1 overflow-y-auto p-3.5 md:p-6 space-y-3.5 md:space-y-4 scrolling-content-fade"
+            className="flex-1 min-h-0 overflow-y-auto p-3.5 md:p-6 space-y-3.5 md:space-y-4 scrolling-content-fade"
           >
             <div className="h-2" /> 
             <AnimatePresence>
@@ -2177,7 +2195,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
           </AnimatePresence>
 
           {/* Typing Footer */}
-          <footer className="glass-gold p-4 md:p-6 pt-3 md:pt-4 rounded-t-[2rem] md:rounded-t-[2.5rem] mt-auto">
+          <footer className="glass-gold px-4 md:px-6 pt-3 md:pt-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] md:pb-6 rounded-t-[2rem] md:rounded-t-[2.5rem] mt-auto shrink-0 z-10">
             {replyingToMessage && (
               <motion.div 
                 initial={{ opacity: 0, height: 0 }}
@@ -2423,7 +2441,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-x-0 bottom-0 z-[110] glass-gold rounded-t-[2.5rem] border-t border-luxury-gold/20 shadow-[0_-10px_50px_rgba(0,0,0,0.8)] p-6 md:p-8 flex flex-col max-h-[85vh] overflow-y-auto select-none bg-luxury-black/98"
+              className="fixed inset-x-0 bottom-0 z-[110] glass-gold rounded-t-[2.5rem] border-t border-luxury-gold/20 shadow-[0_-10px_50px_rgba(0,0,0,0.8)] px-6 md:px-8 pt-6 md:pt-8 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:pb-8 flex flex-col max-h-[85vh] overflow-y-auto select-none bg-luxury-black/98"
             >
               {/* Drag Handle Aesthetic strip */}
               <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-6 shrink-0 cursor-pointer" onClick={() => setShowProfileCard(false)} />

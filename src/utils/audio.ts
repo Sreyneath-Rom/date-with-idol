@@ -225,34 +225,77 @@ export function speakText(text: string, idolName: string) {
     activePremiumAudio = null;
   }
 
-  // Fetch and play premium voice
-  fetch('/api/tts', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, idolName })
-  })
-  .then(res => {
-    if (!res.ok) throw new Error("premium tts status " + res.status);
-    return res.json();
-  })
-  .then(data => {
-    if (data.audio) {
-      const mimeType = data.mimeType || "audio/wav";
-      const audioUrl = `data:${mimeType};base64,${data.audio}`;
-      
-      const audio = new Audio(audioUrl);
-      activePremiumAudio = audio;
-      
-      audio.play().catch(err => {
-        console.warn("Premium voice player blocked, falling back to synthesis", err);
-        speakWithBrowserSynthesis(text, idolName);
-      });
-    } else {
-      speakWithBrowserSynthesis(text, idolName);
+  // Retrieve active selected voice clone details from localstorage to apply AI Voice Clone everywhere
+  let activeClone: any = null;
+  try {
+    const savedActiveId = localStorage.getItem('active_voice_clone_id');
+    const savedClonesStr = localStorage.getItem('ai_voice_clones');
+    const PREBUILT_CLONES = [
+      { id: 'prebuilt-sweet-lover', name: 'Mina Style (Soft ASMR)', gender: 'female', age: 'young', pitch: 12, accent: 'Whisper ASMR', stability: 85, clarity: 92, provider: 'sandbox', voiceId: 'sandbox-sweet-lover' },
+      { id: 'prebuilt-popstar', name: 'Nayeon Style (Sassy Pop)', gender: 'female', age: 'young', pitch: 20, accent: 'Sassy Popstar', stability: 78, clarity: 88, provider: 'sandbox', voiceId: 'sandbox-popstar' },
+      { id: 'prebuilt-mature-oppa', name: 'Warm Friend (Calm Tone)', gender: 'male', age: 'mature', pitch: -22, accent: 'Standard US English', stability: 90, clarity: 95, provider: 'sandbox', voiceId: 'sandbox-mature-oppa' }
+    ];
+    
+    let allClones = [...PREBUILT_CLONES];
+    if (savedClonesStr) {
+      const savedClones = JSON.parse(savedClonesStr);
+      allClones = [...PREBUILT_CLONES, ...savedClones];
     }
-  })
-  .catch(err => {
-    console.warn("Premium voice fetch failed, using robotic fallback:", err);
-    speakWithBrowserSynthesis(text, idolName);
-  });
+    activeClone = allClones.find(c => c.id === savedActiveId) || PREBUILT_CLONES[0];
+  } catch (_) {}
+
+  const headers = { 'Content-Type': 'application/json' };
+  let fetchPromise;
+
+  if (activeClone) {
+    console.log(`[Audio Engine] Synthesizing everywhere command with Cloned Voice: "${activeClone.name}"`);
+    fetchPromise = fetch('/api/voice-clone/tts', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        text,
+        voiceName: activeClone.name,
+        gender: activeClone.gender,
+        age: activeClone.age,
+        pitch: activeClone.pitch,
+        accent: activeClone.accent,
+        stability: activeClone.stability,
+        clarity: activeClone.clarity,
+        voiceId: activeClone.voiceId
+      })
+    });
+  } else {
+    // Normal standard TTS fallback
+    fetchPromise = fetch('/api/tts', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ text, idolName })
+    });
+  }
+
+  fetchPromise
+    .then(res => {
+      if (!res.ok) throw new Error("premium tts status " + res.status);
+      return res.json();
+    })
+    .then(data => {
+      if (data.audio) {
+        const mimeType = data.mimeType || "audio/wav";
+        const audioUrl = `data:${mimeType};base64,${data.audio}`;
+        
+        const audio = new Audio(audioUrl);
+        activePremiumAudio = audio;
+        
+        audio.play().catch(err => {
+          console.warn("Premium voice player blocked, falling back to synthesis", err);
+          speakWithBrowserSynthesis(text, idolName);
+        });
+      } else {
+        speakWithBrowserSynthesis(text, idolName);
+      }
+    })
+    .catch(err => {
+      console.warn("Premium voice fetch failed, using robotic fallback:", err);
+      speakWithBrowserSynthesis(text, idolName);
+    });
 }

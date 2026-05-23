@@ -571,7 +571,7 @@ export default function VoiceLab({ idol, onBack, onNavigateToChat }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0e0a12] via-[#09060d] to-[#040206] text-white flex flex-col p-4 md:p-8 relative selection:bg-purple-500/30 selection:text-purple-200">
+    <div className="h-screen w-screen bg-gradient-to-b from-[#0e0a12] via-[#09060d] to-[#040206] text-white flex flex-col p-4 md:p-8 overflow-y-auto relative selection:bg-purple-500/30 selection:text-purple-200">
       
       {/* Background Ambience and Waves */}
       <div className="absolute inset-x-0 top-0 h-[25vh] bg-gradient-to-b from-purple-500/5 to-transparent pointer-events-none" />

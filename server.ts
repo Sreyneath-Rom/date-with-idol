@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, LiveServerMessage, Modality, Type } from "@google/genai";
 import dotenv from "dotenv";
@@ -344,17 +345,31 @@ async function startServer() {
     try {
       const nameLower = (idolName || "").toLowerCase().trim();
 
-      // Premium ElevenLabs Voice Hook for Nayeon
+      // Premium ElevenLabs Voice Hook for all K-pop idols
       const hasElevenlabsKey = process.env.ELEVENLABS_API_KEY && 
                                process.env.ELEVENLABS_API_KEY.trim() !== "" && 
                                !process.env.ELEVENLABS_API_KEY.includes("YOUR") && 
                                !process.env.ELEVENLABS_API_KEY.includes("MY_");
 
-      if (nameLower === "nayeon" && hasElevenlabsKey) {
+      const ELEVENLABS_VOICES: Record<string, string> = {
+        nayeon: "NOpBlnGInO9m6vDvFkFC",       // Nayeon Style
+        jeongyeon: "EXAVITQu4vr4xnSDxMaL",    // Bella (Warm, reassuring)
+        momo: "AZnzlk1XvdvUeBnXmlld",         // Domi (Cute, lively)
+        sana: "pFZP5ZgZ66Ym6Kxa7IhF",         // Lily (High energetic, bubbly)
+        jihyo: "piTKgcLEGmPEeCEm0Z9s",        // Nicole (Ambitious, leadership tone)
+        mina: "XrExE9yKIg1WjhhOMMtS",         // Ellie (Sweet, quiet, ballet ASMR)
+        dahyun: "21m00Tcm4TlvDq8ikWAM",       // Rachel (Bright, energetic Dubu)
+        chaeyoung: "AZnzlk1XvdvUeBnXmlld",    // Domi (Playful artistic beast)
+        tzuyu: "LcfcDJN63GQCcjgpF79A",        // Emily (Serene, gentle savage maknae)
+      };
+
+      const elevenLabsVoiceId = ELEVENLABS_VOICES[nameLower];
+
+      if (elevenLabsVoiceId && hasElevenlabsKey) {
         try {
-          console.log(`[TTS API] ElevenLabs premium voice synthesis triggered for Nayeon.`);
+          console.log(`[TTS API] ElevenLabs premium voice synthesis triggered for ${nameLower} using voiceId ${elevenLabsVoiceId}.`);
           const client = getElevenLabsClient();
-          const audioStream = await client.textToSpeech.convert("NOpBlnGInO9m6vDvFkFC", {
+          const audioStream = await client.textToSpeech.convert(elevenLabsVoiceId, {
             text: text,
             modelId: "eleven_v3",
             languageCode: "en"
@@ -367,10 +382,10 @@ async function startServer() {
           const buffer = Buffer.concat(chunks);
           const base64Audio = buffer.toString("base64");
           
-          console.log(`[TTS API] ElevenLabs premium voice generated successfully for Nayeon (${buffer.length} bytes).`);
+          console.log(`[TTS API] ElevenLabs premium voice generated successfully for ${nameLower} (${buffer.length} bytes).`);
           return res.json({ audio: base64Audio, mimeType: "audio/mp3" });
         } catch (elError: any) {
-          console.warn("[TTS API] ElevenLabs premium synthesis failed or rate limited, falling back gracefully to Gemini TTS:", elError.message || elError);
+          console.warn(`[TTS API] ElevenLabs premium synthesis for ${nameLower} failed, falling back gracefully to Gemini TTS:`, elError.message || elError);
         }
       }
 
@@ -483,24 +498,38 @@ async function startServer() {
         try {
           console.log(`[VoiceLab API] Direct ElevenLabs clone requested for "${name}".`);
           const client = getElevenLabsClient();
-          const fs = require('fs');
           const tempPath = path.join(process.cwd(), `temp_${Date.now()}.wav`);
           fs.writeFileSync(tempPath, Buffer.from(sampleAudio, 'base64'));
 
-          const voiceResponse = await (client.voices as any).add({
-            name: name,
-            files: [fs.createReadStream(tempPath)],
-            description: description || "Custom cloned voice from Idol Space"
-          });
+          let voiceResponse: any;
+          try {
+            console.log(`[VoiceLab API] Trying ElevenLabs voices.ivc.create for "${name}"`);
+            voiceResponse = await client.voices.ivc.create({
+              name: name,
+              files: [fs.createReadStream(tempPath)]
+            });
+          } catch (ivcErr: any) {
+            console.warn("[VoiceLab API] client.voices.ivc.create failed, falling back to legacy client.voices.add", ivcErr.message || ivcErr);
+            voiceResponse = await (client.voices as any).add({
+              name: name,
+              files: [fs.createReadStream(tempPath)],
+              description: description || "Custom cloned voice from Idol Space"
+            });
+          }
 
           try {
             fs.unlinkSync(tempPath);
           } catch (_) {}
 
-          console.log(`[VoiceLab API] ElevenLabs direct voice cloned successfully! ID: ${voiceResponse.voice_id}`);
+          const voiceId = voiceResponse?.voiceId || voiceResponse?.voice_id;
+          if (!voiceId) {
+            throw new Error("No voiceId returned from ElevenLabs API response");
+          }
+
+          console.log(`[VoiceLab API] ElevenLabs direct voice cloned successfully! ID: ${voiceId}`);
           return res.json({ 
             success: true, 
-            voiceId: voiceResponse.voice_id, 
+            voiceId: voiceId, 
             provider: "elevenlabs",
             message: `Voice Cloned successfully via ElevenLabs!` 
           });
@@ -614,11 +643,12 @@ You MUST speak the following text clearly in this cloned identity. Read only the
         }
         return res.json({ audio: finalAudio, mimeType: finalMimeType });
       } else {
-        return res.status(500).json({ error: "Could not generate audio from neural model." });
+        console.warn("[VoiceLab API] Could not generate audio from neural model, fallback triggered.");
+        return res.json({ error: "Could not generate audio from neural model.", fallback: true });
       }
     } catch (err: any) {
-      console.error("[VoiceLab API] Error:", err);
-      res.status(500).json({ error: err.message || "Voice synthesis error" });
+      console.warn("[VoiceLab API] Voice cloning TTS failed or rate limited, falling back gracefully:", err.message || err);
+      return res.json({ error: err.message || "Voice synthesis error", fallback: true });
     }
   });
 

@@ -39,7 +39,7 @@ export default function Closet({ idol, onBack }: Props) {
   const [selectedOutfit, setSelectedOutfit] = useState('casual');
 
   return (
-    <div className="min-h-screen bg-luxury-black text-white p-6 md:p-8 pt-10 md:pt-12 flex flex-col relative overflow-hidden">
+    <div className="h-screen w-screen bg-luxury-black text-white p-4 sm:p-6 md:p-8 pt-10 md:pt-12 flex flex-col relative overflow-y-auto">
       {/* Background Glow */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] md:w-[800px] h-[600px] md:h-[800px] bg-luxury-magenta/5 blur-[120px] md:blur-[160px] rounded-full" />

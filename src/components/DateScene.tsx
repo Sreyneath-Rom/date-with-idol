@@ -660,7 +660,7 @@ export default function DateScene({ idol, onClose, onAffectionGain, onViewMemori
             <main className="flex-1 relative z-10 flex items-center justify-center pointer-events-none mb-10">
               <motion.img 
                 src={idol.image}
-                className="h-[65vh] md:h-[80vh] object-contain drop-shadow-[0_0_50px_rgba(255,51,119,0.25)] filter"
+                className="h-[40vh] sm:h-[45vh] md:h-[80vh] max-h-[280px] sm:max-h-[380px] md:max-h-none object-contain drop-shadow-[0_0_50px_rgba(255,51,119,0.25)] filter"
                 initial={{ opacity: 0, scale: 0.9, y: 50 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{ duration: 1.5 }}
@@ -676,7 +676,7 @@ export default function DateScene({ idol, onClose, onAffectionGain, onViewMemori
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
-                    className="glass p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border-luxury-magenta/30 max-w-2xl mx-auto"
+                    className="glass p-4 sm:p-6 md:p-8 rounded-2xl md:rounded-[2.5rem] border-luxury-magenta/30 max-w-2xl mx-auto"
                   >
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-[10px] uppercase font-bold tracking-widest text-luxury-magenta">{idol.name}</span>
@@ -687,13 +687,13 @@ export default function DateScene({ idol, onClose, onAffectionGain, onViewMemori
                         </span>
                       )}
                     </div>
-                    <p className="text-sm md:text-lg font-medium italic leading-relaxed text-center mb-6 text-white/95">
+                    <p className="text-xs sm:text-sm md:text-lg font-medium italic leading-relaxed text-center mb-4 sm:mb-6 text-white/95">
                       "{selectedLocation.dialogues[step].text}"
                     </p>
                     <div className="flex justify-center">
                        <button 
-                        onClick={() => setStep(s => s + 1)}
-                        className="px-6 py-2.5 glass-gold rounded-full text-[10px] uppercase font-bold tracking-widest text-luxury-magenta shadow-[0_0_15px_rgba(255,51,119,0.2)] hover:scale-105 active:scale-95 transition-all"
+                         onClick={() => setStep(s => s + 1)}
+                         className="px-5 py-2 sm:px-6 sm:py-2.5 glass-gold rounded-full text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-luxury-magenta shadow-[0_0_15px_rgba(255,51,119,0.2)] hover:scale-105 active:scale-95 transition-all"
                        >
                          Tap to continue
                        </button>
@@ -705,15 +705,15 @@ export default function DateScene({ idol, onClose, onAffectionGain, onViewMemori
                   <motion.div 
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="flex flex-col gap-4 max-w-sm mx-auto"
+                    className="flex flex-col gap-3 max-w-sm mx-auto w-full px-2"
                   >
                     {selectedLocation.choices.map((choice, i) => (
                       <motion.button
                         key={i}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
                         onClick={() => handleChoice(choice.gain)}
-                        className="glass-gold p-6 rounded-3xl font-display font-black uppercase tracking-[0.2em] text-xs hover:bg-luxury-magenta/20 transition-all border-luxury-magenta/50 text-white shadow-xl"
+                        className="glass-gold p-3.5 sm:p-5 md:p-6 rounded-2xl md:rounded-3xl font-display font-black uppercase tracking-[0.15em] text-[10px] sm:text-xs hover:bg-luxury-magenta/20 transition-all border-luxury-magenta/50 text-white shadow-xl"
                       >
                         {choice.text}
                       </motion.button>

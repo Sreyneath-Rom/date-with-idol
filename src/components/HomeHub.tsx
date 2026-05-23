@@ -64,11 +64,34 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
   const [greeting, setGreeting] = useState('');
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showExitHint, setShowExitHint] = useState(false);
+  const [activeCloneName, setActiveCloneName] = useState<string>('');
 
   const activeMission = IDOL_MISSIONS[idol.id] || IDOL_MISSIONS.nayeon;
   const activeAura = IDOL_AURA_COLOR[idol.id] || IDOL_AURA_COLOR.nayeon;
   const activeColor = IDOL_NEON[idol.id] || '#FF3377';
   const affinity = getAffinityLevel(affection);
+
+  useEffect(() => {
+    try {
+      const savedActiveId = localStorage.getItem('active_voice_clone_id');
+      const savedClonesStr = localStorage.getItem('ai_voice_clones');
+      const PREBUILT_CLONES = [
+        { id: 'prebuilt-sweet-lover', name: 'Mina Style (Soft ASMR)', gender: 'female', age: 'young', pitch: 12, accent: 'Whisper ASMR', stability: 85, clarity: 92, provider: 'sandbox', voiceId: 'sandbox-sweet-lover' },
+        { id: 'prebuilt-popstar', name: 'Nayeon Style (Sassy Pop)', gender: 'female', age: 'young', pitch: 20, accent: 'Sassy Popstar', stability: 78, clarity: 88, provider: 'sandbox', voiceId: 'sandbox-popstar' },
+        { id: 'prebuilt-mature-oppa', name: 'Warm Friend (Calm Tone)', gender: 'male', age: 'mature', pitch: -22, accent: 'Standard US English', stability: 90, clarity: 95, provider: 'sandbox', voiceId: 'sandbox-mature-oppa' }
+      ];
+      
+      let allClones = [...PREBUILT_CLONES];
+      if (savedClonesStr) {
+        const savedClones = JSON.parse(savedClonesStr);
+        allClones = [...PREBUILT_CLONES, ...savedClones];
+      }
+      const activeClone = allClones.find(c => c.id === savedActiveId) || PREBUILT_CLONES[0];
+      if (activeClone) {
+        setActiveCloneName(activeClone.name);
+      }
+    } catch (_) {}
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 60000);
@@ -255,45 +278,87 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
 
         </motion.div>
 
-        {/* -- COLUMN 2 (CENTER STANDING PORTRAIT CANVAS & TALK BUBBLE -- */}
-        <div className="xl:col-span-6 flex flex-col items-center justify-center p-2 relative order-1 xl:order-2">
+        {/* -- COLUMN 2 (CENTER STANDING PORTRAIT CANVAS & TALK BUBBLE) -- */}
+        <div className="xl:col-span-6 flex flex-col items-center justify-center p-2 relative order-1 xl:order-2 overflow-hidden md:overflow-visible min-h-[420px] md:min-h-[530px] w-full">
           
-          {/* Standing Portrait */}
-          <div className="relative pointer-events-auto cursor-pointer group flex items-end justify-center min-h-[350px] md:min-h-[480px]">
+          {/* Subtle concentric cyber-halo stage to anchor the center group visually */}
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 overflow-hidden">
+            <div className="w-[300px] h-[300px] md:w-[460px] md:h-[460px] rounded-full border border-white/[0.02] absolute animate-[spin_120s_linear_infinite]" />
+            <div className="w-[190px] h-[190px] md:w-[310px] md:h-[310px] rounded-full border border-dashed border-white/[0.03] absolute animate-[spin_80s_linear_infinite_reverse]" />
+            <div className="w-[90px] h-[90px] md:w-[160px] md:h-[160px] rounded-full border border-white/[0.015] absolute" />
+          </div>
+
+          {/* Standing Portrait with reflection & lighting pedestal */}
+          <div className="relative pointer-events-auto cursor-pointer group flex items-end justify-center min-h-[350px] md:min-h-[480px] z-10 w-full">
             {/* Soft glowing aura behind her */}
             <div className={`absolute bottom-32 w-72 h-72 rounded-full blur-[110px] opacity-40 transition-all ${activeAura}`} />
             
+            {/* Glowing reflective floor light portal at the standing feet */}
+            <div 
+              className="absolute bottom-2 left-1/2 -translate-x-1/2 w-48 md:w-64 h-8 rounded-full opacity-60 pointer-events-none transition-all duration-700 group-hover:scale-110 group-hover:opacity-85"
+              style={{
+                background: `radial-gradient(ellipse at center, ${activeColor}50 0%, transparent 70%)`
+              }}
+            />
+
             <motion.img
               src={idol.image}
               alt={idol.name}
-              initial={{ y: 40, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 1.1, ease: "easeOut" }}
-              className="h-[38vh] md:h-[52vh] xl:h-[58vh] max-h-[580px] object-contain drop-shadow-[0_15px_35px_rgba(0,0,0,0.92)] select-none hover:scale-[1.02] active:scale-[0.99] transition-transform duration-700"
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ 
+                y: [0, -6, 0],
+                opacity: 1 
+              }}
+              whileHover={{ 
+                scale: 1.035,
+                filter: "brightness(1.04)"
+              }}
+              transition={{ 
+                y: {
+                  repeat: Infinity,
+                  duration: 5,
+                  ease: "easeInOut"
+                },
+                scale: { type: "spring", stiffness: 150, damping: 20 },
+                opacity: { duration: 0.8, ease: "easeOut" }
+              }}
+              style={{
+                filter: `drop-shadow(0 25px 45px ${activeColor}25) drop-shadow(0 6px 14px rgba(0,0,0,0.5))`
+              }}
+              className="h-[38vh] md:h-[52vh] xl:h-[58vh] max-h-[580px] object-contain select-none transition-all duration-300"
               onClick={triggerVoiceGreeting}
             />
 
-            {/* Sparkles Dynamic Touch point */}
+            {/* Sparkles Dynamic Tactile Touchpoint Indicator */}
             <motion.div
-              className="absolute top-1/4 right-[25%] w-6 h-6 rounded-full border border-white/20 glass flex items-center justify-center pointer-events-none hover:scale-125 transition-transform"
-              animate={{ y: [0, -6, 0] }}
-              transition={{ repeat: Infinity, duration: 4 }}
+              className="absolute bottom-[45%] right-[22%] w-6 h-6 rounded-full border border-white/20 glass flex items-center justify-center pointer-events-none group-hover:scale-125 transition-all duration-300"
+              animate={{ y: [0, -5, 0] }}
+              transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
             >
-              <div className="w-1.5 h-1.5 bg-rose-400 rounded-full animate-ping" />
-              <Sparkles className="absolute text-orange-200 w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="w-1.5 h-1.5 rounded-full animate-ping" style={{ backgroundColor: activeColor }} />
+              <Sparkles className="absolute w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: activeColor }} />
             </motion.div>
           </div>
 
-          {/* Interactive Floating Talk Bubble Card */}
+          {/* Interactive Floating Talk Bubble Card with reactive scaling & pulse ring */}
           <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.5 }}
+            initial={{ y: 25, opacity: 0 }}
+            animate={{ 
+              y: 0, 
+              opacity: 1,
+              scale: isSpeaking ? 1.04 : 1,
+            }}
+            whileHover={{ scale: isSpeaking ? 1.05 : 1.03, y: -2 }}
+            transition={{ type: "spring", stiffness: 160, damping: 18 }}
             onClick={triggerVoiceGreeting}
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-[290px] md:max-w-[340px] glass p-4 md:p-5 rounded-[1.8rem] border hover:scale-[1.03] active:scale-[0.98] transition-all flex flex-col gap-1 z-20 shadow-2xl backdrop-blur-3xl"
+            className={`absolute bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-[290px] md:max-w-[340px] glass p-4 md:p-5 rounded-[1.8rem] border flex flex-col gap-1 z-20 shadow-2xl backdrop-blur-3xl cursor-pointer transition-all duration-300 ${
+              isSpeaking ? 'ring-2 ring-white/10' : ''
+            }`}
             style={{ 
-              borderColor: `${activeColor}30`,
-              boxShadow: `0 15px 35px -10px ${activeColor}20` 
+              borderColor: isSpeaking ? activeColor : `${activeColor}30`,
+              boxShadow: isSpeaking 
+                ? `0 20px 45px -5px ${activeColor}40, inset 0 1px 1px rgba(255,255,255,0.15)` 
+                : `0 15px 35px -10px ${activeColor}20, inset 0 1px 1px rgba(255,255,255,0.05)` 
             }}
           >
             <div className="flex justify-between items-center border-b border-white/5 pb-1.5">
@@ -316,9 +381,17 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
               )}
             </div>
             
-            <p className="text-xs text-center font-medium leading-relaxed italic text-white/90 pt-0.5">
+            <p className="text-xs text-center font-medium leading-relaxed italic text-white/90 pt-0.5 px-1">
               "{idol.voiceIntro}"
             </p>
+
+            {/* AI Voice Clone Config Active Indicator */}
+            <div className="mt-1.5 flex items-center justify-center gap-1.5 bg-white/5 rounded-full py-1 px-3 border border-white/5 self-center">
+              <Sparkles size={10} className="text-luxury-gold animate-pulse text-rose-300" style={{ color: activeColor }} />
+              <span className="text-[7.5px] font-mono uppercase tracking-wider text-white/50">
+                ACTIVE AI VOICE CLONE: <strong className="text-white font-bold" style={{ color: activeColor }}>{activeCloneName || "Mina Style (Soft ASMR)"}</strong>
+              </span>
+            </div>
           </motion.div>
 
         </div>

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronLeft, ChevronRight, Mic2, Star, Info, LayoutGrid, Layers, Volume2, Sparkles, Check } from 'lucide-react';
 import { IDOLS } from '../constants';
@@ -91,6 +91,7 @@ export default function IdolSelection({ onSelect }: Props) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [viewMode, setViewMode] = useState<'gallery' | 'binder'>('gallery');
   const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [activeCloneName, setActiveCloneName] = useState<string>('');
 
   // Track 3D cursor-tilting coordinate offset
   const [tiltCoords, setTiltCoords] = useState({ x: 0, y: 0 });
@@ -98,6 +99,28 @@ export default function IdolSelection({ onSelect }: Props) {
 
   const currentIdol = IDOLS[index];
   const activeTheme = IDOL_THEMES[currentIdol.id] || IDOL_THEMES.nayeon;
+
+  useEffect(() => {
+    try {
+      const savedActiveId = localStorage.getItem('active_voice_clone_id');
+      const savedClonesStr = localStorage.getItem('ai_voice_clones');
+      const PREBUILT_CLONES = [
+        { id: 'prebuilt-sweet-lover', name: 'Mina Style (Soft ASMR)', gender: 'female', age: 'young', pitch: 12, accent: 'Whisper ASMR', stability: 85, clarity: 92, provider: 'sandbox', voiceId: 'sandbox-sweet-lover' },
+        { id: 'prebuilt-popstar', name: 'Nayeon Style (Sassy Pop)', gender: 'female', age: 'young', pitch: 20, accent: 'Sassy Popstar', stability: 78, clarity: 88, provider: 'sandbox', voiceId: 'sandbox-popstar' },
+        { id: 'prebuilt-mature-oppa', name: 'Warm Friend (Calm Tone)', gender: 'male', age: 'mature', pitch: -22, accent: 'Standard US English', stability: 90, clarity: 95, provider: 'sandbox', voiceId: 'sandbox-mature-oppa' }
+      ];
+      
+      let allClones = [...PREBUILT_CLONES];
+      if (savedClonesStr) {
+        const savedClones = JSON.parse(savedClonesStr);
+        allClones = [...PREBUILT_CLONES, ...savedClones];
+      }
+      const activeClone = allClones.find(c => c.id === savedActiveId) || PREBUILT_CLONES[0];
+      if (activeClone) {
+        setActiveCloneName(activeClone.name);
+      }
+    } catch (_) {}
+  }, []);
 
   const next = () => {
     setIsFlipped(false);
@@ -181,7 +204,7 @@ export default function IdolSelection({ onSelect }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-luxury-black flex flex-col items-center justify-between py-6 md:py-10 px-4 relative overflow-hidden">
+    <div className="min-h-screen bg-luxury-black flex flex-col items-center justify-between py-6 md:py-10 px-4 relative overflow-y-auto lg:overflow-hidden select-none">
       
       {/* Dynamic Background Atmosphere that updates color with selection */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none transition-all duration-1000 z-0">
@@ -309,7 +332,7 @@ export default function IdolSelection({ onSelect }: Props) {
                       >
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/15 to-transparent opacity-90" />
                         
-                        {/* Interactive Content Layout with Custom Staggers */}
+                         {/* Interactive Content Layout with Custom Staggers */}
                         <div className="relative z-10 w-full space-y-2.5 md:space-y-3.5">
                           <motion.div 
                             initial={{ y: 15, opacity: 0 }}
@@ -322,6 +345,10 @@ export default function IdolSelection({ onSelect }: Props) {
                             </span>
                             <span className="px-2.5 py-0.5 rounded-full bg-white/5 text-[7.5px] font-mono tracking-[0.1em] text-white/60 border border-white/10 backdrop-blur-md">
                               #09_BIAS
+                            </span>
+                            <span className="px-2.5 py-0.5 rounded-full bg-white/5 text-[7.5px] font-mono tracking-[0.1em] text-cyan-300 border border-cyan-500/20 backdrop-blur-md flex items-center gap-1.5 uppercase">
+                              <Sparkles size={8} className="text-cyan-300 animate-pulse" />
+                              Cloned Voice: {activeCloneName || "Mina Style"}
                             </span>
                           </motion.div>
                           
@@ -354,17 +381,34 @@ export default function IdolSelection({ onSelect }: Props) {
                             transition={{ delay: 0.3, type: "spring", stiffness: 120, damping: 13 }}
                             className="pt-1"
                           >
-                            <button
+                            <motion.button
                               id={`select-idol-button-${currentIdol.id}`}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onSelect(currentIdol);
                                 playSentSound();
                               }}
-                              className="w-full py-2.5 md:py-3.5 rounded-2xl bg-gradient-to-r from-rose-500 via-pink-600 to-rose-500 text-white font-display font-black uppercase tracking-[0.25em] text-[10px] md:text-xs shadow-lg shadow-rose-500/15 hover:shadow-rose-500/30 hover:scale-[1.03] active:scale-[0.97] transition-all cursor-pointer border border-rose-400/25 flex items-center justify-center gap-1"
+                              whileHover={{ 
+                                scale: 1.04,
+                                y: -2,
+                                boxShadow: "0 12px 30px -5px rgba(244, 15, 120, 0.45)"
+                              }}
+                              whileTap={{ 
+                                scale: 0.96,
+                                y: 1
+                              }}
+                              transition={{ 
+                                type: "spring", 
+                                stiffness: 500, 
+                                damping: 18 
+                              }}
+                              className="w-full py-2.5 md:py-3.5 rounded-2xl bg-gradient-to-r from-rose-500 via-pink-600 to-rose-500 text-white font-display font-black uppercase tracking-[0.25em] text-[10px] md:text-xs shadow-lg shadow-rose-500/15 cursor-pointer border border-rose-400/25 flex items-center justify-center gap-1 overflow-hidden relative group/btn"
                             >
-                              Select {currentIdol.name}
-                            </button>
+                              <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 ease-out z-0" />
+                              <span className="relative z-10 flex items-center justify-center gap-1">
+                                Select {currentIdol.name}
+                              </span>
+                            </motion.button>
                           </motion.div>
                         </div>
                       </div>
