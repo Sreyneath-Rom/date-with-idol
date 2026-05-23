@@ -94,18 +94,19 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-luxury-black text-white relative overflow-hidden flex flex-col justify-between p-4 md:p-6 lg:p-10 select-none">
+    <div className="min-h-screen bg-luxury-black text-white relative overflow-y-auto xl:overflow-hidden flex flex-col justify-between p-4 md:p-6 lg:p-10 select-none pb-24 xl:pb-10">
       
       {/* Dynamic Ambient Space Overlay */}
       <div className="absolute inset-0 w-full h-full overflow-hidden opacity-25 z-0 pointer-events-none transition-all duration-1000">
         <div 
-          className="absolute inset-x-0 top-0 h-[60%] bg-gradient-to-b opacity-40 transition-all duration-1000"
+          className="absolute inset-x-0 top-0 w-full h-full bg-gradient-to-b opacity-40 transition-all duration-1000"
           style={{ backgroundImage: `linear-gradient(to bottom, ${activeColor}33, transparent)` }}
         />
         <div
           className="absolute inset-0 bg-center bg-cover scale-105 filter blur-sm translate-y-2 opacity-60"
           style={{ backgroundImage: `url('https://legacy.kpopping.com/c8/0/TWICE-SPECIAL-ALBUM-TEN-The-Story-Goes-On-documents-1.jpeg')` }}
         />
+        
       </div>
 
       <div className="absolute inset-0 bg-gradient-to-t from-luxury-black via-luxury-black/90 to-luxury-black/50 z-0 pointer-events-none" />

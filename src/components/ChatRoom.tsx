@@ -58,6 +58,19 @@ const IDOL_STATUSES: Record<string, { status: string; mbti: string; favoriteEmoj
   tzuyu: { status: "👑 Graceful thoughts. Wishing you raw peace.", mbti: "ISFP", favoriteEmoji: "🐶" }
 };
 
+const getEstimatedReadTime = (text: string) => {
+  if (!text) return '';
+  const wordCount = text.trim().split(/\s+/).length;
+  // Estimate: 3.5 words per second
+  const seconds = Math.max(3, Math.ceil(wordCount / 3.5));
+  if (seconds < 60) {
+    return `${seconds}s read`;
+  } else {
+    const mins = Math.max(1, Math.ceil(seconds / 60));
+    return `${mins}m read`;
+  }
+};
+
 export default function ChatRoom({ idol, onBack }: Props) {
   const { user } = useFirebase();
   const [currentIdol, setCurrentIdol] = useState<Idol>(idol);
@@ -91,6 +104,14 @@ export default function ChatRoom({ idol, onBack }: Props) {
     localStorage.setItem(key, String(generated));
     return generated;
   });
+
+  const handleSelectWallpaper = (wpId: string) => {
+    const activeChatId = currentGroup ? currentGroup.id : currentIdol.id;
+    setSelectedWallpaperId(wpId);
+    localStorage.setItem(`bubble_wallpaper_${activeChatId}`, wpId);
+    triggerHaptic(10);
+  };
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Voice recording states and refs
@@ -100,6 +121,9 @@ export default function ChatRoom({ idol, onBack }: Props) {
 
   const [isAway, setIsAway] = useState(false);
   const [replyingToMessage, setReplyingToMessage] = useState<ChatMessage | null>(null);
+
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Floating hearts effect state and helpers
   const [floatingHearts, setFloatingHearts] = useState<{ id: string; x: number; size: number; delay: number; color: string; rotate: number }[]>([]);
@@ -131,12 +155,73 @@ export default function ChatRoom({ idol, onBack }: Props) {
     setFloatingHearts(prev => prev.filter(h => h.id !== id));
   }, []);
 
+  const [bubbleHearts, setBubbleHearts] = useState<{ id: string; msgId: string; x: number; size: number; delay: number; color: string; rotate: number }[]>([]);
+
+  const triggerBubbleHearts = useCallback((msgId: string) => {
+    const colors = [
+      'text-rose-500', 
+      'text-pink-500', 
+      'text-red-500', 
+      'text-rose-400', 
+      'text-pink-400', 
+      'text-rose-300',
+      'text-luxury-magenta'
+    ];
+    
+    // Generate 8 floating hearts that burst upwards from the bubble
+    const count = 10;
+    const newHearts = Array.from({ length: count }).map((_, i) => ({
+      id: `${msgId}-${Date.now()}-${i}-${Math.random()}`,
+      msgId,
+      x: Math.random() * 50 - 25, // horizontal offset variation relative to bubble center
+      size: Math.random() * 8 + 12, // size (12px to 20px)
+      delay: Math.random() * 0.15, // slight delay for organic burst spread
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotate: Math.random() * 60 - 30 // random initial rotation offset
+    }));
+    
+    setBubbleHearts(prev => [...prev, ...newHearts]);
+  }, []);
+
+  const removeBubbleHeart = useCallback((id: string) => {
+    setBubbleHearts(prev => prev.filter(h => h.id !== id));
+  }, []);
+
   const triggerHaptic = useCallback((pattern: number | number[] = 10) => {
     if (typeof window !== 'undefined' && 'vibrate' in navigator) {
       try {
         navigator.vibrate(pattern);
       } catch (e) {}
     }
+  }, []);
+
+  const handleReplyIndicatorClick = useCallback((e: React.MouseEvent, targetMsgId: string) => {
+    e.stopPropagation();
+    triggerHaptic(10);
+    setHighlightedMessageId(targetMsgId);
+    
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+
+    // Find absolute location or scroll the specific container's child to view
+    const element = document.getElementById(`msg-${targetMsgId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    // Auto clear the highlight after 2.5 seconds
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightedMessageId(null);
+    }, 2500);
+  }, [triggerHaptic]);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -293,6 +378,9 @@ export default function ChatRoom({ idol, onBack }: Props) {
  
   const updateMessageReaction = async (msgId: string, emoji: string) => {
     triggerHearts();
+    if (emoji === '❤️') {
+      triggerBubbleHearts(msgId);
+    }
     const chatId = currentGroup ? currentGroup.id : currentIdol.id;
     if (user) {
       const messagesCollPath = `users/${user.uid}/chats/${chatId}/messages`;
@@ -484,6 +572,45 @@ export default function ChatRoom({ idol, onBack }: Props) {
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+
+    // Dynamic auto-scrolling for long messages (e.g. typing text) or active status changes
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage) return;
+
+    const isImage = lastMessage.type === 'image' || !!lastMessage.imageUrl;
+    const isLongText = typeof lastMessage.text === 'string' && lastMessage.text.length > 55;
+
+    if (isImage || isLongText) {
+      let intervalId: NodeJS.Timeout | null = null;
+
+      // If it's a typing long message by the idol (which fades characters sequentially),
+      // we continuously adjust the scroll over the estimate typing transition time.
+      if (lastMessage.sender === 'idol' && lastMessage.text && lastMessage.text.length > 55 && !lastMessage.translatedText) {
+        const charDurationEstimate = lastMessage.text.length * 20 + 300; // 20ms per char animation + cushion
+        const startTime = Date.now();
+
+        intervalId = setInterval(() => {
+          if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          }
+          if (Date.now() - startTime > charDurationEstimate) {
+            if (intervalId) clearInterval(intervalId);
+          }
+        }, 120);
+      } else {
+        // Instant/delayed adjustments for other long text messages
+        const timer = setTimeout(() => {
+          if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          }
+        }, 150);
+        return () => clearTimeout(timer);
+      }
+
+      return () => {
+        if (intervalId) clearInterval(intervalId);
+      };
     }
   }, [messages, isTyping]);
 
@@ -1433,7 +1560,13 @@ export default function ChatRoom({ idol, onBack }: Props) {
                 return (
                   <motion.div
                     key={msg.id}
-                    initial={{ 
+                    initial={msg.replyTo ? { 
+                      opacity: 0, 
+                      y: 28, 
+                      scale: 0.98,
+                      originX: msg.sender === 'idol' ? 0 : 1,
+                      originY: 0
+                    } : { 
                       opacity: 0, 
                       y: 12, 
                       scale: 0.95, 
@@ -1441,7 +1574,12 @@ export default function ChatRoom({ idol, onBack }: Props) {
                       originY: 0
                     }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ 
+                    transition={msg.replyTo ? { 
+                      type: 'spring',
+                      damping: 18,
+                      stiffness: 90,
+                      delay: 0.04
+                    } : { 
                       type: 'spring',
                       damping: 24,
                       stiffness: 220,
@@ -1472,7 +1610,8 @@ export default function ChatRoom({ idol, onBack }: Props) {
                       </div>
                     )}
 
-                    <div 
+                    <motion.div 
+                      id={`msg-${msg.id}`}
                       onClick={() => {
                         triggerHaptic(5);
                         setActiveReactionMessageId(activeReactionMessageId === msg.id ? null : msg.id);
@@ -1487,14 +1626,108 @@ export default function ChatRoom({ idol, onBack }: Props) {
                           triggerHearts();
                         }
                       }}
+                      initial={msg.replyTo ? { y: 20, opacity: 0 } : undefined}
+                      animate={
+                        highlightedMessageId === msg.id
+                          ? {
+                              scale: [1, 1.05, 0.98, 1.03, 1],
+                              borderColor: [
+                                "rgba(212, 175, 55, 0.2)",
+                                "rgba(255, 51, 119, 1)",
+                                "rgba(212, 175, 55, 1)",
+                                "rgba(255, 51, 119, 1)",
+                                "rgba(212, 175, 55, 0.2)"
+                              ],
+                              boxShadow: [
+                                "0 4px 10px rgba(0, 0, 0, 0.15)",
+                                "0 0 35px rgba(255, 51, 119, 0.9)",
+                                "0 0 35px rgba(212, 175, 55, 0.9)",
+                                "0 0 25px rgba(255, 51, 119, 0.7)",
+                                "0 4px 10px rgba(0, 0, 0, 0.15)"
+                              ]
+                            }
+                          : msg.replyTo
+                          ? { 
+                              y: 0, 
+                              opacity: 1,
+                              borderColor: [
+                                "rgba(255, 51, 119, 0.1)", 
+                                "rgba(255, 51, 119, 0.8)", 
+                                "rgba(212, 175, 55, 0.8)", 
+                                "rgba(255, 51, 119, 0.1)"
+                              ],
+                              boxShadow: [
+                                "0 4px 10px rgba(0, 0, 0, 0.15)",
+                                "0 4px 22px rgba(255, 51, 119, 0.35)",
+                                "0 4px 22px rgba(212, 175, 55, 0.28)",
+                                "0 4px 10px rgba(0, 0, 0, 0.15)"
+                              ]
+                            }
+                          : undefined
+                      }
+                      transition={
+                        highlightedMessageId === msg.id
+                          ? {
+                              duration: 1.8,
+                              ease: "easeInOut",
+                              times: [0, 0.2, 0.4, 0.7, 1]
+                            }
+                          : msg.replyTo
+                          ? {
+                              y: { type: 'spring', damping: 14, stiffness: 120 },
+                              borderColor: { duration: 2.4, ease: "easeInOut" },
+                              boxShadow: { duration: 2.4, ease: "easeInOut" }
+                            }
+                          : undefined
+                      }
                       className={`max-w-[80%] px-4 py-2.5 md:py-3 rounded-2xl md:rounded-[2rem] shadow-lg relative cursor-pointer select-none group hover:brightness-[1.03] active:scale-[0.99] transition-all duration-150 ${
-                        msg.sender === 'idol' && msg.type === 'image'
-                          ? 'p-2.5 bg-white text-neutral-900 rounded-xl shadow-xl border border-white/50 flex flex-col items-center rotate-1 hover:rotate-0 transition-all duration-300'
-                          : msg.sender === 'idol'
-                            ? `glass text-white/90 border-luxury-magenta/10 ${isConsecutive ? 'rounded-tl-2xl' : 'rounded-tl-xs'}`
-                            : `bg-gradient-to-tr from-luxury-magenta to-luxury-gold text-white font-medium ${isConsecutive ? 'rounded-tr-2xl' : 'rounded-tr-xs'}`
+                        highlightedMessageId === msg.id
+                          ? 'border-2 border-luxury-gold ring-4 ring-luxury-gold/50 shadow-[0_0_30px_rgba(212,175,55,0.6)]'
+                          : msg.sender === 'idol' && msg.type === 'image'
+                            ? 'p-2.5 bg-white text-neutral-900 rounded-xl shadow-xl border border-white/50 flex flex-col items-center rotate-1 hover:rotate-0 transition-all duration-300'
+                            : msg.sender === 'idol'
+                              ? `glass text-white/90 border-luxury-magenta/10 ${isConsecutive ? 'rounded-tl-2xl' : 'rounded-tl-xs'}`
+                              : `bg-gradient-to-tr from-luxury-magenta to-luxury-gold text-white font-medium ${isConsecutive ? 'rounded-tr-2xl' : 'rounded-tr-xs'}`
                       }`}
                     >
+                      {/* Local Floating Hearts Particle Effect Container */}
+                      {msg.reaction === '❤️' && (
+                        <div className="absolute inset-0 pointer-events-none overflow-visible z-30">
+                          <AnimatePresence>
+                            {bubbleHearts
+                              .filter((h) => h.msgId === msg.id)
+                              .map((heart) => (
+                                <motion.div
+                                  key={heart.id}
+                                  initial={{ opacity: 0, scale: 0.2, y: 15, x: `${50 + heart.x}%`, rotate: heart.rotate }}
+                                  animate={{
+                                    opacity: [0, 1, 1, 0],
+                                    scale: [0.2, 1.2, 1.4, 0.9],
+                                    y: [15, -25, -60, -100],
+                                    x: [
+                                      `${50 + heart.x}%`,
+                                      `${50 + heart.x + (Math.random() * 20 - 10)}%`,
+                                      `${50 + heart.x + (Math.random() * 35 - 17.5)}%`,
+                                      `${50 + heart.x + (Math.random() * 50 - 25)}%`
+                                    ],
+                                    rotate: [heart.rotate, heart.rotate + Math.random() * 40 - 20, heart.rotate + Math.random() * 80 - 40]
+                                  }}
+                                  transition={{
+                                    duration: 1.8,
+                                    delay: heart.delay,
+                                    ease: 'easeOut',
+                                  }}
+                                  onAnimationComplete={() => removeBubbleHeart(heart.id)}
+                                  className={`absolute pointer-events-none drop-shadow-[0_2px_6px_rgba(255,51,119,0.4)] ${heart.color} select-none`}
+                                  style={{ fontSize: `${heart.size}px`, bottom: '0px' }}
+                                >
+                                  ❤️
+                                </motion.div>
+                              ))}
+                          </AnimatePresence>
+                        </div>
+                      )}
+
                       {/* Floating Reaction Selector Popover */}
                       <AnimatePresence>
                         {activeReactionMessageId === msg.id && (
@@ -1567,10 +1800,17 @@ export default function ChatRoom({ idol, onBack }: Props) {
 
                       {/* Render Referencing Reply header preview if this msg is a reply */}
                       {msg.replyTo && (
-                        <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-black/25 border-l-2 border-luxury-magenta text-[10px] opacity-90 backdrop-blur-md space-y-0.5 max-w-full">
-                          <div className="font-bold text-luxury-gold tracking-widest uppercase text-[7px] flex items-center gap-1">
-                            <span>↩ REPLIED TO</span>
-                            <span className="text-white/60">@{msg.replyTo.senderName}</span>
+                        <div 
+                          onClick={(e) => handleReplyIndicatorClick(e, msg.replyTo!.id)}
+                          className="mb-2 px-2.5 py-1.5 rounded-lg bg-black/30 border-l-2 border-luxury-magenta text-[10px] opacity-90 backdrop-blur-md space-y-0.5 max-w-full cursor-pointer hover:bg-black/55 hover:border-l-luxury-gold hover:scale-[1.01] active:scale-[0.99] transition-all group/reply select-none shadow-[inset_0_1px_5px_rgba(0,0,0,0.4)]"
+                          title="Click to locate parent message with pulse highlight"
+                        >
+                          <div className="font-bold text-luxury-gold tracking-widest uppercase text-[7px] flex items-center justify-between gap-1 select-none">
+                            <div className="flex items-center gap-1">
+                              <span>↩ REPLIED TO</span>
+                              <span className="text-white/60">@{msg.replyTo.senderName}</span>
+                            </div>
+                            <span className="text-[6.5px] text-luxury-gold/70 tracking-wider uppercase font-mono animate-pulse group-hover/reply:text-white">Tap to locate 🔍</span>
                           </div>
                           <div className="text-white/80 truncate text-[10px] font-sans">
                             {msg.replyTo.text}
@@ -1604,6 +1844,14 @@ export default function ChatRoom({ idol, onBack }: Props) {
                                 alt="Selfie Polaroid" 
                                 className="w-full h-full object-cover filter brightness-[1.02] contrast-[0.98]"
                                 referrerPolicy="no-referrer"
+                                onLoad={() => {
+                                  if (scrollRef.current) {
+                                    scrollRef.current.scrollTo({
+                                      top: scrollRef.current.scrollHeight,
+                                      behavior: 'smooth'
+                                    });
+                                  }
+                                }}
                               />
                               <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-luxury-magenta/90 text-white font-display text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full shadow-md backdrop-blur">
                                 <Sparkles size={6} />
@@ -1627,6 +1875,14 @@ export default function ChatRoom({ idol, onBack }: Props) {
                               alt="Shared Photo" 
                               className="w-full h-auto max-h-56 object-cover"
                               referrerPolicy="no-referrer"
+                              onLoad={() => {
+                                if (scrollRef.current) {
+                                  scrollRef.current.scrollTo({
+                                    top: scrollRef.current.scrollHeight,
+                                    behavior: 'smooth'
+                                  });
+                                }
+                              }}
                             />
                           </div>
                         )
@@ -1693,6 +1949,14 @@ export default function ChatRoom({ idol, onBack }: Props) {
                           <span className="text-[8px] font-mono font-medium">
                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
+                          
+                          {/* Inline estimated reading time for longer idol messages */}
+                          {msg.sender === 'idol' && msg.text && msg.text.length > 55 && (
+                            <span className="text-[7.5px] font-mono tracking-wider uppercase bg-white/10 px-1.5 py-0.5 rounded flex items-center gap-1 select-none font-bold text-luxury-gold/80 border border-white/5" title="Estimated reading time">
+                              ⏱️ {getEstimatedReadTime(msg.text)}
+                            </span>
+                          )}
+
                           {msg.sender === 'idol' && msg.type !== 'image' && msg.type !== 'voice' && (
                             <div className="flex items-center gap-1">
                               {/* Standard local speech */}
@@ -1743,14 +2007,32 @@ export default function ChatRoom({ idol, onBack }: Props) {
                         <motion.div 
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
-                          className={`absolute -bottom-2 z-10 p-1 rounded-full bg-neutral-900 border border-white/10 shadow-lg flex items-center justify-center text-xs w-6 h-6 hover:scale-110 active:scale-95 transition-transform ${
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            triggerHaptic(5);
+                            if (msg.reaction === '❤️') {
+                              triggerBubbleHearts(msg.id);
+                            } else {
+                              setActiveReactionMessageId(activeReactionMessageId === msg.id ? null : msg.id);
+                            }
+                          }}
+                          className={`absolute -bottom-2 z-10 p-1 rounded-full bg-neutral-900 border border-white/10 shadow-lg flex items-center justify-center text-xs w-6 h-6 hover:scale-130 active:scale-95 transition-transform cursor-pointer ${
                             msg.sender === 'idol' ? 'right-4' : 'left-4'
                           }`}
                         >
                           {msg.reaction}
                         </motion.div>
                       )}
-                    </div>
+                    </motion.div>
+
+                    {/* Companion status indicator next to the Chat Bubble for long idol messages */}
+                    {msg.sender === 'idol' && msg.text && msg.text.length > 55 && (
+                      <div className="text-[10px] font-bold text-luxury-gold/80 select-none pl-1.5 pb-1 pr-1 pointer-events-none text-left flex flex-col justify-end h-full self-end leading-none shrink-0 mb-1">
+                        <span className="text-[7.5px] opacity-35 tracking-widest font-mono select-none uppercase bg-white/5 border border-white/5 px-2 py-1 rounded-lg flex items-center gap-1">
+                          ⏱ {getEstimatedReadTime(msg.text)}
+                        </span>
+                      </div>
+                    )}
                   </motion.div>
                 );
               })}
@@ -2043,6 +2325,127 @@ export default function ChatRoom({ idol, onBack }: Props) {
               <p className="text-[8px] text-white/20 uppercase tracking-[0.3em] font-medium">Session ID: {Math.random().toString(16).slice(2, 10).toUpperCase()}</p>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Profile Card & Customization Bottom Drawer Panel */}
+      <AnimatePresence>
+        {showProfileCard && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 z-[100] cursor-pointer"
+              onClick={() => setShowProfileCard(false)}
+            />
+            
+            {/* Slide-Up Cabinet */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed inset-x-0 bottom-0 z-[110] glass-gold rounded-t-[2.5rem] border-t border-luxury-gold/20 shadow-[0_-10px_50px_rgba(0,0,0,0.8)] p-6 md:p-8 flex flex-col max-h-[85vh] overflow-y-auto select-none bg-luxury-black/98"
+            >
+              {/* Drag Handle Aesthetic strip */}
+              <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-6 shrink-0 cursor-pointer" onClick={() => setShowProfileCard(false)} />
+              
+              {/* Profile Card Content */}
+              <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-center">
+                {/* Visual Avatar frame & Level badge */}
+                <div className="relative">
+                  <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl md:rounded-3xl bg-cover bg-center border-2 border-luxury-gold shadow-2xl shrink-0" style={{ backgroundImage: `url(${currentGroup ? currentGroup.image : currentIdol.image})` }} />
+                  <div className="absolute -bottom-2 -left-2 bg-gradient-to-tr from-luxury-magenta to-luxury-gold text-white text-[9px] uppercase tracking-widest font-black px-3 py-1 rounded-full border border-white/10 shadow-lg">
+                    {currentGroup ? 'OT9 UNIT' : `MBTI: ${IDOL_STATUSES[currentIdol.id]?.mbti || 'INFP'}`}
+                  </div>
+                </div>
+
+                {/* Info block */}
+                <div className="flex-1 text-center md:text-left space-y-2 md:space-y-3">
+                  <div className="flex flex-col md:flex-row md:items-center gap-1.5 md:gap-3 justify-center md:justify-start">
+                    <h2 className="text-xl md:text-2xl font-display font-black text-white uppercase tracking-wider flex items-center justify-center md:justify-start gap-2">
+                      {currentGroup ? currentGroup.name : currentIdol.name}
+                      <span className="text-xl select-none">{currentGroup ? '👑' : IDOL_STATUSES[currentIdol.id]?.favoriteEmoji || '💖'}</span>
+                    </h2>
+                    <span className="inline-block self-center px-2.5 py-0.5 rounded-full bg-luxury-magenta/15 border border-luxury-magenta/35 text-[8px] font-bold text-luxury-magenta tracking-widest uppercase">
+                      Premium Bubble Active
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-white/70 max-w-md italic font-medium leading-relaxed">
+                    "{currentGroup ? currentGroup.voiceIntro : IDOL_STATUSES[currentIdol.id]?.status || currentIdol.voiceIntro}"
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-3 max-w-sm pt-2">
+                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-left">
+                      <span className="text-[7.5px] font-mono text-white/30 block tracking-widest uppercase mb-0.5">Subscription</span>
+                      <span className="text-[10px] font-sans font-extrabold text-[#FFAA85] flex items-center gap-1">
+                        🎁 {subscriptionDays} Days Left
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-left">
+                      <span className="text-[7.5px] font-mono text-white/30 block tracking-widest uppercase mb-0.5">Bond Strength</span>
+                      <span className="text-[10px] font-sans font-extrabold text-luxury-gold flex items-center gap-1">
+                        💖 {(currentGroup ? currentGroup.difficulty : currentIdol.difficulty) * 10}% Complete
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Wallpaper customizer list */}
+              <div className="border-t border-white/5 pt-6 mt-6 space-y-4">
+                <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                  <h4 className="text-[9px] md:text-xs font-black uppercase text-luxury-gold tracking-[0.2em] flex items-center gap-1.5">
+                    🎨 Tune Bubble Wallpaper
+                  </h4>
+                  <span className="text-[8px] text-white/35 uppercase font-mono tracking-wider">Live background change</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {WALLPAPERS.map((wp) => {
+                    const isActive = selectedWallpaperId === wp.id;
+                    return (
+                      <button
+                        key={wp.id}
+                        onClick={() => handleSelectWallpaper(wp.id)}
+                        className={`p-3 rounded-2xl border transition-all flex flex-col gap-2.5 text-left items-stretch relative overflow-hidden active:scale-95 cursor-pointer ${
+                          isActive 
+                            ? 'border-luxury-gold/50 bg-luxury-gold/10 shadow-[0_4px_15px_rgba(212,175,55,0.15)]' 
+                            : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.05]'
+                        }`}
+                      >
+                        {/* Visual Wallpaper gradient circle mockup */}
+                        <div className={`h-10 rounded-xl ${wp.preview} border border-white/10`} />
+                        <div className="flex flex-col">
+                          <span className={`text-[10.5px] font-bold ${isActive ? 'text-luxury-gold' : 'text-white/80'}`}>{wp.name}</span>
+                          <span className="text-[7px] uppercase tracking-wider font-mono text-white/30 leading-none">Preset Wallpaper</span>
+                        </div>
+                        {isActive && (
+                          <div className="absolute top-2 right-2 bg-luxury-gold text-black w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border border-white/20">
+                            ✓
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Close Bottom Strip */}
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={() => setShowProfileCard(false)}
+                  className="px-8 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10 text-xs font-black uppercase tracking-wider transition-all duration-300 active:scale-95 cursor-pointer"
+                >
+                  Close Profile Settings
+                </button>
+              </div>
+
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 

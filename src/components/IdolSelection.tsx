@@ -350,7 +350,7 @@ export default function IdolSelection({ onSelect }: Props) {
                       </div>
 
                       {/* Floating Interactive Flip Hint */}
-                      <div className="absolute top-4 left-4 z-10 glass border-white/5 py-1 px-2 rounded-full text-[6.5px] font-mono tracking-[0.2em] uppercase text-white/50 flex items-center gap-1.5 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute top-4 left-4 z-10 glass border-white/5 py-1 px-2 rounded-full text-[6.5px] font-mono tracking-[0.2em] uppercase text-white/50 flex items-center gap-1.5 backdrop-blur-md opacity-90 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <Sparkles size={7} className="text-luxury-gold" />
                         TAP TO FLIP PROFILE
                       </div>
@@ -436,20 +436,20 @@ export default function IdolSelection({ onSelect }: Props) {
               </AnimatePresence>
 
               {/* Slider Hardware Arrow Controls */}
-              <div className="absolute top-1/2 -left-14 md:-left-18 -translate-y-1/2 z-30">
+              <div className="absolute top-1/2 -left-3 sm:-left-18 -translate-y-1/2 z-30">
                 <button 
                   onClick={prev} 
-                  className="w-9 h-9 md:w-11 md:h-11 rounded-full glass border-white/5 flex items-center justify-center hover:bg-white/10 hover:border-white/20 hover:scale-105 active:scale-95 text-white/60 hover:text-white transition-all cursor-pointer shadow-lg"
+                  className="w-8 h-8 sm:w-11 sm:h-11 rounded-full glass border-white/10 flex items-center justify-center hover:bg-white/10 hover:border-white/20 hover:scale-105 active:scale-95 text-white/80 hover:text-white transition-all cursor-pointer shadow-xl backdrop-blur-md"
                 >
-                  <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
+                  <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               </div>
-              <div className="absolute top-1/2 -right-14 md:-right-18 -translate-y-1/2 z-30">
+              <div className="absolute top-1/2 -right-3 sm:-right-18 -translate-y-1/2 z-30">
                 <button 
                   onClick={next} 
-                  className="w-9 h-9 md:w-11 md:h-11 rounded-full glass border-white/5 flex items-center justify-center hover:bg-white/10 hover:border-white/20 hover:scale-105 active:scale-95 text-white/60 hover:text-white transition-all cursor-pointer shadow-lg"
+                  className="w-8 h-8 sm:w-11 sm:h-11 rounded-full glass border-white/10 flex items-center justify-center hover:bg-white/10 hover:border-white/20 hover:scale-105 active:scale-95 text-white/80 hover:text-white transition-all cursor-pointer shadow-xl backdrop-blur-md"
                 >
-                  <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
+                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               </div>
             </motion.div>
