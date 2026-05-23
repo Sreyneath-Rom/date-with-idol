@@ -283,15 +283,21 @@ export default function IdolSelection({ onSelect }: Props) {
                     onMouseMove={handleCardMouseMove}
                     onMouseLeave={handleCardMouseLeave}
                     animate={{ 
-                      rotateY: isFlipped ? 180 : 0
+                      rotateY: isFlipped ? 180 + (isHovering ? tiltCoords.x * 12 : 0) : (isHovering ? tiltCoords.x * 12 : 0),
+                      rotateX: isHovering ? -tiltCoords.y * 12 : 0,
+                      scale: isHovering ? 1.03 : 1,
+                      z: isHovering ? 25 : 0
+                    }}
+                    transition={{ 
+                      type: "spring", 
+                      stiffness: isHovering ? 200 : 120, 
+                      damping: isHovering ? 22 : 18,
+                      mass: 0.6
                     }}
                     style={{ 
                       transformStyle: 'preserve-3d',
-                      rotateY: isFlipped ? 180 + tiltCoords.x * 24 : tiltCoords.x * 24,
-                      rotateX: -tiltCoords.y * 24,
                     }}
-                    transition={isHovering ? { type: "tween", ease: "linear", duration: 0.1 } : { type: "spring", stiffness: 120, damping: 18 }}
-                    className={`w-full h-full relative cursor-pointer select-none rounded-[2.2rem] transition-shadow duration-500 shadow-[0_15px_35px_rgba(0,0,0,0.6)] ${activeTheme.glow} hover:shadow-[0_22px_55px_rgba(255,255,255,0.06)]`}
+                    className={`w-full h-full relative group cursor-pointer select-none rounded-[2.2rem] transition-shadow duration-500 shadow-[0_15px_35px_rgba(0,0,0,0.6)] ${activeTheme.glow} hover:shadow-[0_30px_60px_rgba(0,0,0,0.85)]`}
                     onClick={() => { setIsFlipped(!isFlipped); playReceivedSound(); }}
                   >
                     
@@ -301,20 +307,29 @@ export default function IdolSelection({ onSelect }: Props) {
                         className="w-full h-full bg-cover bg-center overflow-hidden relative flex flex-col justify-end p-6 md:p-8"
                         style={{ backgroundImage: `url(${currentIdol.image})` }}
                       >
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent opacity-85" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/15 to-transparent opacity-90" />
                         
-                        {/* Static Content Layout */}
-                        <div className="relative z-10 w-full space-y-2 md:space-y-3">
-                          <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* Interactive Content Layout with Custom Staggers */}
+                        <div className="relative z-10 w-full space-y-2.5 md:space-y-3.5">
+                          <motion.div 
+                            initial={{ y: 15, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ delay: 0.12, type: "spring", stiffness: 100, damping: 15 }}
+                            className="flex items-center gap-1.5 flex-wrap"
+                          >
                             <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-[7.5px] font-bold uppercase tracking-[0.25em] text-rose-300 border border-rose-500/30 backdrop-blur-md">
                               {currentIdol.personalityTag}
                             </span>
                             <span className="px-2.5 py-0.5 rounded-full bg-white/5 text-[7.5px] font-mono tracking-[0.1em] text-white/60 border border-white/10 backdrop-blur-md">
                               #09_BIAS
                             </span>
-                          </div>
+                          </motion.div>
                           
-                          <div>
+                          <motion.div
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ delay: 0.2, type: "spring", stiffness: 95, damping: 14 }}
+                          >
                             <h3 className="font-display text-2xl md:text-3.5xl font-extrabold tracking-tight mb-0.5 text-white flex items-center justify-between">
                               {currentIdol.name}
                               {/* Hear Voice Floating Pin */}
@@ -331,9 +346,14 @@ export default function IdolSelection({ onSelect }: Props) {
                               </button>
                             </h3>
                             <p className="text-luxury-gold text-[9px] md:text-[10px] tracking-[0.25em] uppercase font-bold font-display">{currentIdol.role}</p>
-                          </div>
+                          </motion.div>
 
-                          <div className="pt-2">
+                          <motion.div 
+                            initial={{ y: 25, opacity: 0, scale: 0.95 }}
+                            animate={{ y: 0, opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.3, type: "spring", stiffness: 120, damping: 13 }}
+                            className="pt-1"
+                          >
                             <button
                               id={`select-idol-button-${currentIdol.id}`}
                               onClick={(e) => {
@@ -341,31 +361,45 @@ export default function IdolSelection({ onSelect }: Props) {
                                 onSelect(currentIdol);
                                 playSentSound();
                               }}
-                              className="w-full py-2.5 md:py-3 rounded-2xl bg-gradient-to-r from-rose-500 via-pink-600 to-rose-500 text-white font-display font-black uppercase tracking-[0.25em] text-[10px] md:text-xs shadow-lg shadow-rose-500/10 hover:shadow-rose-500/25 hover:scale-[1.03] active:scale-[0.97] transition-all cursor-pointer border border-rose-400/25 flex items-center justify-center gap-1"
+                              className="w-full py-2.5 md:py-3.5 rounded-2xl bg-gradient-to-r from-rose-500 via-pink-600 to-rose-500 text-white font-display font-black uppercase tracking-[0.25em] text-[10px] md:text-xs shadow-lg shadow-rose-500/15 hover:shadow-rose-500/30 hover:scale-[1.03] active:scale-[0.97] transition-all cursor-pointer border border-rose-400/25 flex items-center justify-center gap-1"
                             >
                               Select {currentIdol.name}
                             </button>
-                          </div>
+                          </motion.div>
                         </div>
                       </div>
 
                       {/* Foil/Holographic Dynamic Reflection Overlay */}
-                      <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[2.2rem] z-20">
-                        {isHovering && (
-                          <div 
-                            className="absolute inset-0 w-full h-full mix-blend-color-dodge opacity-30 transition-all duration-100"
-                            style={{
-                              background: `radial-gradient(circle at ${50 + tiltCoords.x * 100}% ${50 + tiltCoords.y * 100}%, rgba(255, 255, 255, 0.75) 0%, rgba(255, 80, 200, 0.2) 30%, rgba(80, 200, 255, 0.2) 55%, rgba(0,0,0,0) 80%)`,
-                            }}
-                          />
-                        )}
-                        {/* Dynamic spectrum glow corner overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-tr from-rose-500/5 via-transparent to-luxury-gold/5 opacity-40 mix-blend-overlay" />
+                      <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[2.2rem] z-25">
+                        {/* Shimmering diagonal foil beam */}
+                        <div 
+                          className="absolute inset-0 opacity-25 mix-blend-color-dodge transition-all duration-300"
+                          style={{
+                            background: `linear-gradient(105deg, 
+                              transparent ${15 + tiltCoords.x * 55}%, 
+                              rgba(255,255,255,0.45) ${30 + tiltCoords.x * 55}%, 
+                              rgba(255,0,128,0.2) ${42 + tiltCoords.x * 55}%, 
+                              rgba(0,128,255,0.2) ${54 + tiltCoords.x * 55}%, 
+                              rgba(255,255,255,0.45) ${68 + tiltCoords.x * 55}%, 
+                              transparent ${85 + tiltCoords.x * 55}%
+                            )`,
+                          }}
+                        />
+                        {/* Radial interactive spotlight sheen */}
+                        <div 
+                          className="absolute inset-0 mix-blend-overlay transition-opacity duration-300"
+                          style={{
+                            opacity: isHovering ? 0.5 : 0.25,
+                            background: `radial-gradient(circle at ${50 + tiltCoords.x * 120}% ${50 + tiltCoords.y * 120}%, rgba(255, 255, 255, 0.8) 0%, rgba(244, 63, 94, 0.35) 25%, rgba(59, 130, 246, 0.25) 50%, rgba(0,0,0,0) 80%)`,
+                          }}
+                        />
+                        {/* Static subtle metallic border shine */}
+                        <div className="absolute inset-0 border border-white/5 rounded-[2.2rem] pointer-events-none" />
                       </div>
 
                       {/* Floating Interactive Flip Hint */}
-                      <div className="absolute top-4 left-4 z-10 glass border-white/5 py-1 px-2 rounded-full text-[6.5px] font-mono tracking-[0.2em] uppercase text-white/50 flex items-center gap-1.5 backdrop-blur-md opacity-90 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                        <Sparkles size={7} className="text-luxury-gold" />
+                      <div className="absolute top-4 left-4 z-10 glass border-white/5 py-1 px-2.5 rounded-full text-[6.5px] font-mono tracking-[0.2em] uppercase text-white/50 flex items-center gap-1.5 backdrop-blur-md opacity-90 md:opacity-0 md:group-hover:opacity-100 transition-all duration-300">
+                        <Sparkles size={7} className="text-luxury-gold animate-pulse" />
                         TAP TO FLIP PROFILE
                       </div>
                     </div>
@@ -384,12 +418,19 @@ export default function IdolSelection({ onSelect }: Props) {
                         </div>
 
                         <div className="space-y-3 md:space-y-4">
-                          <div>
+                          <motion.div
+                            animate={{ y: isFlipped ? 0 : 15, opacity: isFlipped ? 1 : 0 }}
+                            transition={{ delay: isFlipped ? 0.12 : 0, type: "spring", stiffness: 80 }}
+                          >
                             <span className="text-[7px] md:text-[8.5px] text-white/40 font-mono tracking-widest uppercase block mb-1">Aura Personality</span>
                             <p className="text-white/90 leading-relaxed italic text-[10.5px] md:text-xs">"{currentIdol.personality}"</p>
-                          </div>
+                          </motion.div>
 
-                          <div className="grid grid-cols-2 gap-3.5 pt-1">
+                          <motion.div 
+                            className="grid grid-cols-2 gap-3.5 pt-1"
+                            animate={{ y: isFlipped ? 0 : 20, opacity: isFlipped ? 1 : 0 }}
+                            transition={{ delay: isFlipped ? 0.2 : 0, type: "spring", stiffness: 80 }}
+                          >
                             <div>
                               <span className="text-[7px] md:text-[8px] text-white/30 font-mono tracking-widest uppercase block mb-0.5">Focus Hobbies</span>
                               <div className="flex flex-col gap-0.5">
@@ -402,9 +443,13 @@ export default function IdolSelection({ onSelect }: Props) {
                               <span className="text-[7px] md:text-[8px] text-white/30 font-mono tracking-widest uppercase block mb-0.5">Aesthetic Treats</span>
                               <span className="text-[10px] md:text-[11px] text-white/80 font-medium leading-tight block">{currentIdol.favoriteFood}</span>
                             </div>
-                          </div>
+                          </motion.div>
 
-                          <div className="space-y-1.5 pt-2">
+                          <motion.div 
+                            className="space-y-1.5 pt-2"
+                            animate={{ y: isFlipped ? 0 : 25, opacity: isFlipped ? 1 : 0 }}
+                            transition={{ delay: isFlipped ? 0.28 : 0, type: "spring", stiffness: 80 }}
+                          >
                             <div className="flex justify-between text-[7px] md:text-[8px] tracking-wider text-white/35 font-mono uppercase">
                               <span>Chemistry Unlock Friction</span>
                               <span className="text-rose-400 font-bold">LVL {currentIdol.difficulty}/10</span>
@@ -421,12 +466,16 @@ export default function IdolSelection({ onSelect }: Props) {
                                 />
                               ))}
                             </div>
-                          </div>
+                          </motion.div>
                         </div>
                       </div>
 
-                      {/* Collector's handwriting signature simulation block */}
-                      <div className="relative z-10 border-t border-white/5 pt-4 mt-2 flex flex-col items-center">
+                      {/* Collector's handwriting signature simulation block with stagger entry */}
+                      <motion.div 
+                        className="relative z-10 border-t border-white/5 pt-4 mt-2 flex flex-col items-center"
+                        animate={{ y: isFlipped ? 0 : 30, opacity: isFlipped ? 1 : 0 }}
+                        transition={{ delay: isFlipped ? 0.35 : 0, type: "spring", stiffness: 75 }}
+                      >
                         <div className="font-serif italic text-sm md:text-base text-white/60 select-none pb-2 tracking-[0.1em] opacity-80">
                           {currentIdol.name} Loves ONCE
                         </div>
@@ -437,12 +486,12 @@ export default function IdolSelection({ onSelect }: Props) {
                             onSelect(currentIdol);
                             playSentSound();
                           }}
-                          className="w-full py-3 md:py-4 rounded-xl bg-gradient-to-r from-rose-500 via-pink-500 to-luxury-gold text-white font-display font-black uppercase tracking-[0.25em] text-[8.5px] md:text-xs shadow-lg hover:shadow-rose-500/20 active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5 cursor-pointer border border-rose-400/20"
+                          className="w-full py-3 md:py-4 rounded-xl bg-gradient-to-r from-rose-500 via-pink-500 to-luxury-gold text-white font-display font-black uppercase tracking-[0.25em] text-[8.5px] md:text-xs shadow-lg hover:shadow-rose-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-rose-400/20"
                         >
                           Unlock Chemistry Hub
                         </button>
                         <p className="text-[6.5px] md:text-[8px] text-white/35 font-mono tracking-wider mt-2.5 uppercase select-none">Tap anywhere to flip card back</p>
-                      </div>
+                      </motion.div>
 
                     </div>
                   </motion.div>
@@ -486,38 +535,50 @@ export default function IdolSelection({ onSelect }: Props) {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.04 }}
-                    whileHover={{ scale: 1.025, y: -4 }}
+                    whileHover={{ 
+                      scale: 1.04, 
+                      y: -8,
+                      boxShadow: `0 25px 45px -10px ${idolTheme.accent}45, inset 0 0 15px rgba(255,255,255,0.15)`
+                    }}
                     onClick={() => {
                       jumpToIdol(i);
                       setViewMode('gallery');
                     }}
-                    className={`relative aspect-[3/4.2] rounded-[1.8rem] overflow-hidden cursor-pointer border hover:shadow-2xl transition-all duration-300 ${
+                    className={`relative aspect-[3/4.2] rounded-[1.8rem] overflow-hidden cursor-pointer border group transition-all duration-300 ${
                       isSelected 
-                        ? `${idolTheme.border} ${idolTheme.glow} scale-[1.015] border-rose-500`
-                        : 'border-white/5 bg-zinc-950/60 hover:border-rose-500/30'
+                        ? `${idolTheme.border} border-rose-500`
+                        : 'border-white/5 bg-zinc-950/65 hover:border-white/20'
                     }`}
+                    style={isSelected ? {
+                      boxShadow: `0 20px 35px -8px ${idolTheme.accent}30`
+                    } : {}}
                   >
-                    {/* Background image covering card */}
+                    {/* Background image covering card with zoom effect on hover */}
                     <div 
-                      className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
+                      className="absolute inset-0 bg-cover bg-center transition-transform duration-700 ease-out group-hover:scale-110"
                       style={{ backgroundImage: `url(${idol.image})` }}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-85" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-transparent opacity-90 transition-opacity duration-300 group-hover:opacity-85" />
+
+                    {/* Animated foil reflection sweep on card hover */}
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-500 z-15">
+                      <div className="w-[150%] h-[150%] absolute top-[-25%] left-[-25%] bg-gradient-to-tr from-transparent via-white/18 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
+                    </div>
 
                     {/* Active Selected Stamp */}
                     {isSelected && (
-                      <div className="absolute top-3 left-3 bg-rose-500 text-white p-1 rounded-full border border-pink-400/50 shadow-md">
+                      <div className="absolute top-3.5 left-3.5 bg-rose-500 text-white p-1 rounded-full border border-pink-400/50 shadow-md z-15 flex items-center justify-center">
                         <Check size={8} strokeWidth={4} />
                       </div>
                     )}
 
-                    {/* Compact layout */}
-                    <div className="absolute inset-x-0 bottom-0 p-3.5 md:p-5 flex flex-col gap-1 z-10">
-                      <span className={`text-[6px] md:text-[7.5px] uppercase tracking-widest font-mono font-black ${idolTheme.text}`}>
+                    {/* Compact layout with subtle elevate transition */}
+                    <div className="absolute inset-x-0 bottom-0 p-3.5 md:p-5 flex flex-col gap-1 z-10 transition-transform duration-300 group-hover:translate-y-[-2px]">
+                      <span className={`text-[6px] md:text-[7.5px] uppercase tracking-widest font-mono font-black transition-all group-hover:tracking-[0.18em] ${idolTheme.text}`}>
                         {idol.personalityTag}
                       </span>
                       <div className="flex items-center justify-between min-w-0">
-                        <h4 className="font-display font-extrabold text-sm md:text-base text-white truncate mr-2">
+                        <h4 className="font-display font-extrabold text-sm md:text-base text-white truncate mr-2 transition-transform duration-300 group-hover:translate-x-1">
                           {idol.name}
                         </h4>
                         
@@ -527,7 +588,7 @@ export default function IdolSelection({ onSelect }: Props) {
                           className={`w-6 h-6 rounded-full flex items-center justify-center transition-all flex-shrink-0 cursor-pointer ${
                             speakingId === idol.id
                               ? 'bg-rose-500 text-white animate-pulse'
-                              : 'bg-black/60 hover:bg-rose-500/40 text-rose-300'
+                              : 'bg-black/70 hover:bg-rose-500 text-zinc-300 hover:text-white border border-white/5 hover:border-transparent'
                           }`}
                         >
                           <Volume2 size={10} />
