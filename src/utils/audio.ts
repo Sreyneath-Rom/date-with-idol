@@ -157,11 +157,9 @@ export function playCallEndSound() {
   osc.stop(now + 0.25);
 }
 
-/**
- * Voice Speech Engine utilizing the Web Speech Synthesis API
- * Features high-pitch K-pop style parameters tailored per Idol personality
- */
-export function speakText(text: string, idolName: string) {
+let activePremiumAudio: HTMLAudioElement | null = null;
+
+function speakWithBrowserSynthesis(text: string, idolName: string) {
   if (typeof window === 'undefined' || !window.speechSynthesis) return;
 
   // Cancel any active speak queues to avoid overlapping
@@ -207,4 +205,54 @@ export function speakText(text: string, idolName: string) {
   utterance.volume = 1.0;
 
   window.speechSynthesis.speak(utterance);
+}
+
+/**
+ * Voice Speech Engine utilizing the Premium Server-side Gemini TTS first,
+ * with Web Speech Synthesis API as dynamic offline/rate-limit fallback.
+ */
+export function speakText(text: string, idolName: string) {
+  if (typeof window === 'undefined') return;
+
+  // Cancel active browser speak queue to avoid overlapping
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+
+  // Stop previous premium audio if running
+  if (activePremiumAudio) {
+    activePremiumAudio.pause();
+    activePremiumAudio = null;
+  }
+
+  // Fetch and play premium voice
+  fetch('/api/tts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, idolName })
+  })
+  .then(res => {
+    if (!res.ok) throw new Error("premium tts status " + res.status);
+    return res.json();
+  })
+  .then(data => {
+    if (data.audio) {
+      const mimeType = data.mimeType || "audio/wav";
+      const audioUrl = `data:${mimeType};base64,${data.audio}`;
+      
+      const audio = new Audio(audioUrl);
+      activePremiumAudio = audio;
+      
+      audio.play().catch(err => {
+        console.warn("Premium voice player blocked, falling back to synthesis", err);
+        speakWithBrowserSynthesis(text, idolName);
+      });
+    } else {
+      speakWithBrowserSynthesis(text, idolName);
+    }
+  })
+  .catch(err => {
+    console.warn("Premium voice fetch failed, using robotic fallback:", err);
+    speakWithBrowserSynthesis(text, idolName);
+  });
 }

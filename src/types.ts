@@ -16,6 +16,8 @@ export type AppView = 'intro' | 'selection' | 'hub' | 'chat' | 'date' | 'memorie
 export interface ChatMessage {
   id: string;
   sender: 'idol' | 'player';
+  senderId?: string;
+  senderName?: string;
   text: string;
   timestamp: number;
   type: 'text' | 'voice' | 'image';
@@ -23,6 +25,24 @@ export interface ChatMessage {
   audioUrl?: string;
   audioDuration?: number;
   reaction?: string;
+  replyTo?: {
+    id: string;
+    senderName: string;
+    text: string;
+  };
+  translatedText?: string;
+}
+
+export interface GroupChat {
+  id: string;
+  name: string;
+  role: string;
+  personality: string;
+  personalityTag: string;
+  image: string;
+  members: string[]; // member IDs included
+  voiceIntro: string;
+  difficulty: number;
 }
 
 export interface UserProfile {

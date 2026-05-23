@@ -1,4 +1,4 @@
-import { Idol } from './types';
+import { Idol, GroupChat } from './types';
 
 export const IDOLS: Idol[] = [
   {
@@ -108,5 +108,52 @@ export const IDOLS: Idol[] = [
     hobbies: ['Listening to music', 'Playing with dogs', 'Traveling', 'Watching performances'],
     favoriteFood: 'Kimbap & Eel',
     difficulty: 7,
+  }
+];
+
+export const GROUP_CHATS: GroupChat[] = [
+  {
+    id: 'twice_group',
+    name: 'TWICE OT9 Lounge ☕',
+    role: 'Official OT9 Channel',
+    personality: 'A wonderfully chaotic, warm, and super high-energy group chat. Members frequently jump in, tease one another playfully, react in real-time, and compete to give you the most affection and sweet attention.',
+    personalityTag: 'OT9 Group Chat',
+    image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=1000&auto=format&fit=crop',
+    members: ['nayeon', 'jeongyeon', 'momo', 'sana', 'jihyo', 'mina', 'dahyun', 'chaeyoung', 'tzuyu'],
+    voiceIntro: 'TWICE OT9 is here! Everyone is texting at the same time to get your attention! Let\'s go!',
+    difficulty: 9
+  },
+  {
+    id: 'misamo_group',
+    name: 'MISAMO Sweet Room 🌸',
+    role: 'MiSaMo Subunit Chat',
+    personality: 'Sana, Momo, and Mina sub-unit chat. Ultra-cute, cozy, polite yet incredibly affectionate. They talk about dancing, perfumes, cozy gaming sessions, eating delicious Jokbal, and exchanging cute emoji responses.',
+    personalityTag: 'MiSaMo Subunit',
+    image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1000&auto=format&fit=crop',
+    members: ['momo', 'sana', 'mina'],
+    voiceIntro: 'No Sana, No Life! Mina, Sana, and Momo have joined your private parlor. Let\'s have some delicious snacks and chat!',
+    difficulty: 8
+  },
+  {
+    id: 'maknae_group',
+    name: 'School Meal Club 🎒',
+    role: 'Maknae Line Chat',
+    personality: 'Dahyun, Chaeyoung, and Tzuyu group chat. Bright, artsy, witty, and sweet. They share drawings, talk about chocolate bread, spot hidden cameras, and tease their older unnies with lovable maknae energy.',
+    personalityTag: 'Maknae Line',
+    image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=1000&auto=format&fit=crop',
+    members: ['dahyun', 'chaeyoung', 'tzuyu'],
+    voiceIntro: 'The School Meal Club is in the house! Dahyun, Chaeyoung, and Tzuyu are here to brighten your day up page by page!',
+    difficulty: 7
+  },
+  {
+    id: 'unnie_group',
+    name: 'Leader & Unnie Line 🎙️',
+    role: 'Unnie Line Chat',
+    personality: 'Jihyo, Nayeon, and Jeongyeon unnie-line. Mature, caring, organized but secretly chaotic and super protective of you. They check if you slept well, talk about solo stages, tell jokes, and guard you like older sisters.',
+    personalityTag: 'Unnie Line',
+    image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1000&auto=format&fit=crop',
+    members: ['nayeon', 'jeongyeon', 'jihyo'],
+    voiceIntro: 'Jihyo, Nayeon, and Jeongyeon have logged in. Ready for some comforting older-sister chats, advice, and laughter?',
+    difficulty: 8
   }
 ];

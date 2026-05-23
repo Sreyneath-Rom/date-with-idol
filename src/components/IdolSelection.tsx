@@ -1,39 +1,156 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronRight, Mic2, Star, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Mic2, Star, Info, LayoutGrid, Layers, Volume2, Sparkles, Check } from 'lucide-react';
 import { IDOLS } from '../constants';
 import { Idol } from '../types';
+import { speakText, playSentSound, playReceivedSound } from '../utils/audio';
 
 interface Props {
   onSelect: (idol: Idol) => void;
 }
 
+// Twice group colors/aesthetics mapped to enhance the authentic luxury feeling
+const IDOL_THEMES: Record<string, { border: string; glow: string; text: string; bg: string; accent: string; neon: string }> = {
+  nayeon: {
+    border: 'border-pink-500/35',
+    glow: 'shadow-pink-500/25',
+    text: 'text-pink-400',
+    accent: '#FF3377',
+    neon: 'rgba(255, 51, 119, 0.4)',
+    bg: 'from-pink-950/30 via-black/95 to-zinc-950'
+  },
+  jeongyeon: {
+    border: 'border-emerald-500/35',
+    glow: 'shadow-emerald-500/25',
+    text: 'text-emerald-400',
+    accent: '#10B981',
+    neon: 'rgba(16, 185, 129, 0.4)',
+    bg: 'from-emerald-950/30 via-black/95 to-zinc-950'
+  },
+  momo: {
+    border: 'border-rose-500/35',
+    glow: 'shadow-rose-500/25',
+    text: 'text-rose-400',
+    accent: '#F43F5E',
+    neon: 'rgba(244, 63, 94, 0.4)',
+    bg: 'from-rose-950/30 via-black/95 to-zinc-950'
+  },
+  sana: {
+    border: 'border-purple-500/35',
+    glow: 'shadow-purple-500/25',
+    text: 'text-purple-400',
+    accent: '#A855F7',
+    neon: 'rgba(168, 85, 247, 0.4)',
+    bg: 'from-purple-950/30 via-black/95 to-zinc-950'
+  },
+  jihyo: {
+    border: 'border-amber-500/35',
+    glow: 'shadow-amber-500/25',
+    text: 'text-amber-400',
+    accent: '#F59E0B',
+    neon: 'rgba(245, 158, 11, 0.4)',
+    bg: 'from-amber-950/30 via-black/95 to-zinc-950'
+  },
+  mina: {
+    border: 'border-teal-500/35',
+    glow: 'shadow-teal-500/25',
+    text: 'text-teal-400',
+    accent: '#14B8A6',
+    neon: 'rgba(20, 184, 166, 0.4)',
+    bg: 'from-teal-950/30 via-black/95 to-zinc-950'
+  },
+  dahyun: {
+    border: 'border-indigo-400/35',
+    glow: 'shadow-indigo-400/25',
+    text: 'text-indigo-300',
+    accent: '#818CF8',
+    neon: 'rgba(129, 140, 248, 0.4)',
+    bg: 'from-indigo-950/30 via-black/95 to-zinc-950'
+  },
+  chaeyoung: {
+    border: 'border-red-500/35',
+    glow: 'shadow-red-500/25',
+    text: 'text-red-400',
+    accent: '#EF4444',
+    neon: 'rgba(239, 68, 68, 0.4)',
+    bg: 'from-red-950/30 via-black/95 to-zinc-950'
+  },
+  tzuyu: {
+    border: 'border-sky-500/35',
+    glow: 'shadow-sky-500/25',
+    text: 'text-sky-400',
+    accent: '#0EA5E9',
+    neon: 'rgba(14, 165, 233, 0.4)',
+    bg: 'from-sky-950/30 via-black/95 to-zinc-950'
+  }
+};
+
 export default function IdolSelection({ onSelect }: Props) {
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState(1); // 1 = next, -1 = prev
   const [isFlipped, setIsFlipped] = useState(false);
+  const [viewMode, setViewMode] = useState<'gallery' | 'binder'>('gallery');
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+
+  // Track 3D cursor-tilting coordinate offset
+  const [tiltCoords, setTiltCoords] = useState({ x: 0, y: 0 });
+  const [isHovering, setIsHovering] = useState(false);
 
   const currentIdol = IDOLS[index];
+  const activeTheme = IDOL_THEMES[currentIdol.id] || IDOL_THEMES.nayeon;
 
   const next = () => {
     setIsFlipped(false);
     setDirection(1);
     setIndex((prev) => (prev + 1) % IDOLS.length);
+    playSentSound();
   };
 
   const prev = () => {
     setIsFlipped(false);
     setDirection(-1);
     setIndex((prev) => (prev - 1 + IDOLS.length) % IDOLS.length);
+    playSentSound();
+  };
+
+  const jumpToIdol = (idx: number) => {
+    if (idx === index) return;
+    setIsFlipped(false);
+    setDirection(idx > index ? 1 : -1);
+    setIndex(idx);
+    playReceivedSound();
+  };
+
+  const handleCardMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const card = e.currentTarget;
+    const box = card.getBoundingClientRect();
+    // Normalize coordinates: range from -0.5 to 0.5
+    const x = (e.clientX - box.left) / box.width - 0.5;
+    const y = (e.clientY - box.top) / box.height - 0.5;
+    setTiltCoords({ x, y });
+    setIsHovering(true);
+  };
+
+  const handleCardMouseLeave = () => {
+    setTiltCoords({ x: 0, y: 0 });
+    setIsHovering(false);
+  };
+
+  const hearVoiceIntro = (e: React.MouseEvent, idol: Idol) => {
+    e.stopPropagation();
+    setSpeakingId(idol.id);
+    speakText(idol.voiceIntro, idol.name);
+    // Visual flash timeout matching vocal start
+    setTimeout(() => setSpeakingId(null), 3000);
   };
 
   const slideVariants = {
     enter: (dir: number) => ({
-      x: dir * 160,
+      x: dir * 180,
       opacity: 0,
-      scale: 0.92,
-      rotateY: dir * 15,
-      z: -50,
+      scale: 0.9,
+      rotateY: dir * 25,
+      z: -70,
     }),
     center: {
       x: 0,
@@ -43,260 +160,421 @@ export default function IdolSelection({ onSelect }: Props) {
       z: 0,
       transition: {
         type: "spring" as const,
-        stiffness: 300,
-        damping: 24,
+        stiffness: 320,
+        damping: 25,
         mass: 0.8
       }
     },
     exit: (dir: number) => ({
-      x: dir * -160,
+      x: dir * -180,
       opacity: 0,
-      scale: 0.92,
-      rotateY: dir * -15,
-      z: -50,
+      scale: 0.9,
+      rotateY: dir * -25,
+      z: -70,
       transition: {
         type: "spring" as const,
-        stiffness: 300,
-        damping: 24,
+        stiffness: 320,
+        damping: 25,
         mass: 0.8
       }
     }),
   };
 
   return (
-    <div className="min-h-screen bg-luxury-black flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute inset-0 overflow-hidden opacity-20 pointer-events-none">
-        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-luxury-magenta blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-luxury-gold blur-[120px] rounded-full opacity-30" />
+    <div className="min-h-screen bg-luxury-black flex flex-col items-center justify-between py-6 md:py-10 px-4 relative overflow-hidden">
+      
+      {/* Dynamic Background Atmosphere that updates color with selection */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none transition-all duration-1000 z-0">
+        <div 
+          className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] blur-[140px] rounded-full opacity-20 transition-all duration-1000"
+          style={{ backgroundColor: activeTheme.accent }}
+        />
+        <div className="absolute bottom-[-15%] left-[-15%] w-[50%] h-[50%] bg-zinc-900 blur-[130px] rounded-full opacity-60" />
+        <div className="absolute inset-0 bg-radial-gradient from-transparent to-luxury-black/95" />
       </div>
 
-      <header className="fixed top-8 md:top-12 text-center z-10 px-4">
-        <motion.h2 
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="font-display text-[10px] tracking-[0.4em] uppercase text-luxury-magenta/80 mb-1.5"
-        >
-          ONCE, Choose Your Bias
-        </motion.h2>
-        <motion.h1 
-          initial={{ y: -10, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
+      {/* Top Header Section */}
+      <header className="w-full max-w-5xl relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-white/5 pb-4 md:pb-6">
+        <div className="text-center sm:text-left">
+          <motion.div 
+            initial={{ y: -10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="flex items-center justify-center sm:justify-start gap-2 mb-1"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+            <h2 className="font-display text-[9px] md:text-[10px] tracking-[0.4em] uppercase text-rose-500 font-bold">
+              ONCE SPECIAL COLLECION • CHOOSE BIAS
+            </h2>
+          </motion.div>
+          <motion.h1 
+            initial={{ y: -5, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.05 }}
+            className="font-serif text-xl md:text-2xl lg:text-3xl italic text-gradient-twice font-medium"
+          >
+            One in a million
+          </motion.h1>
+        </div>
+
+        {/* View Mode Toggle Switch */}
+        <motion.div 
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="font-serif text-2xl md:text-3xl italic text-gradient-twice"
+          className="flex bg-white/5 rounded-2xl p-1 border border-white/10"
         >
-          One in a million
-        </motion.h1>
+          <button
+            onClick={() => { setViewMode('gallery'); playReceivedSound(); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium tracking-wide transition-all cursor-pointer ${
+              viewMode === 'gallery' 
+                ? 'bg-rose-500/10 text-rose-400 shadow-sm border border-rose-500/20' 
+                : 'text-white/50 hover:text-white hover:bg-white/5 border border-transparent'
+            }`}
+          >
+            <Layers size={13} />
+            3D Studio
+          </button>
+          <button
+            onClick={() => { setViewMode('binder'); playReceivedSound(); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium tracking-wide transition-all cursor-pointer ${
+              viewMode === 'binder' 
+                ? 'bg-rose-500/10 text-rose-400 shadow-sm border border-rose-500/20' 
+                : 'text-white/50 hover:text-white hover:bg-white/5 border border-transparent'
+            }`}
+          >
+            <LayoutGrid size={13} />
+            Binder Grid
+          </button>
+        </motion.div>
       </header>
 
-      <div className="relative w-full max-w-[min(380px,calc(100vw-3rem))] aspect-[3/4] perspective-1000 mt-12">
-        <AnimatePresence mode="wait" custom={direction}>
-          <motion.div
-            key={currentIdol.id}
-            custom={direction}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            className="w-full h-full absolute inset-0"
-            style={{ transformStyle: 'preserve-3d' }}
-          >
-            <motion.div
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.6}
-              onDragEnd={(e, info) => {
-                const swipeThreshold = 50;
-                if (info.offset.x < -swipeThreshold) {
-                  next();
-                } else if (info.offset.x > swipeThreshold) {
-                  prev();
-                }
-              }}
-              whileHover={{ 
-                scale: 1.03,
-                y: -6,
-              }}
-              animate={{ 
-                rotateY: isFlipped ? 180 : 0,
-              }}
-              transition={{ 
-                type: "spring", 
-                stiffness: 140, 
-                damping: 18 
-              }}
-              style={{ transformStyle: 'preserve-3d' }}
-              className="w-full h-full relative cursor-pointer select-none group rounded-[2.5rem] shadow-[0_15px_35px_rgba(0,0,0,0.5)] hover:shadow-[0_25px_55px_-12px_rgba(255,51,119,0.25)] transition-shadow duration-500"
-              onClick={() => setIsFlipped(!isFlipped)}
+      {/* Main Interactive Workspace Area */}
+      <div className="w-full flex-1 flex items-center justify-center relative z-10 py-4 md:py-8">
+        <AnimatePresence mode="wait">
+          {viewMode === 'gallery' ? (
+            /* ---- GALLERY 3D SWIPEABLE MODE ---- */
+            <motion.div 
+              key="gallery_view"
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              className="relative w-full max-w-[min(390px,calc(100vw-3rem))] aspect-[3/4.2] perspective-1000"
             >
-              {/* Front */}
-              <div className="absolute inset-0 backface-hidden w-full h-full rounded-[2.5rem] overflow-hidden">
-                <div 
-                  className="w-full h-full rounded-[2.5rem] bg-cover bg-center overflow-hidden relative border border-white/10"
-                  style={{ backgroundImage: `url(${currentIdol.image})` }}
+              <AnimatePresence mode="wait" custom={direction}>
+                <motion.div
+                  key={currentIdol.id}
+                  custom={direction}
+                  variants={slideVariants}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  className="w-full h-full absolute inset-0"
+                  style={{ transformStyle: 'preserve-3d' }}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/95" />
-                  
-                  <div className="absolute bottom-6 left-6 right-6 md:bottom-8 md:left-8 md:right-8">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="px-3 py-1 rounded-full bg-luxury-magenta/20 text-[10px] uppercase tracking-[0.2em] text-pink-300 border border-luxury-magenta/30 backdrop-blur-md">
-                        {currentIdol.personalityTag}
-                      </span>
-                    </div>
-                    <h3 className="font-display text-3xl md:text-4xl font-bold mb-1 text-white">{currentIdol.name}</h3>
-                    <p className="text-white/60 text-[10px] md:text-xs tracking-[0.3em] uppercase font-medium">{currentIdol.role}</p>
-                  </div>
-                </div>
-                
-                <div className="absolute top-6 right-6 flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
-                  <button className="w-11 h-11 rounded-2xl glass flex items-center justify-center hover:bg-white/20 transition-colors">
-                    <Mic2 className="w-5 h-5 text-white/80" />
-                  </button>
-                  <button className="w-11 h-11 rounded-2xl glass flex items-center justify-center hover:bg-white/20 transition-colors relative">
-                    <Info className="w-5 h-5 text-white/80" />
-                    <motion.div 
-                      animate={{ scale: [1, 1.2, 1] }} 
-                      transition={{ repeat: Infinity, duration: 2 }}
-                      className="absolute -top-1 -right-1 w-3 h-3 bg-luxury-magenta rounded-full border-2 border-luxury-black" 
-                    />
-                  </button>
-                </div>
-
-                {/* Foil holographic shine reflection */}
-                <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[2.5rem] z-20">
-                  <motion.div 
-                    className="absolute inset-0 w-[200%] h-[200%] -left-1/2 -top-1/2 opacity-0 group-hover:opacity-15 transition-opacity duration-300 pointer-events-none"
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0) 70%)',
+                  <motion.div
+                    drag="x"
+                    dragConstraints={{ left: 0, right: 0 }}
+                    dragElastic={0.4}
+                    onDragEnd={(e, info) => {
+                      const swipeThreshold = 55;
+                      if (info.offset.x < -swipeThreshold) next();
+                      else if (info.offset.x > swipeThreshold) prev();
                     }}
-                    animate={isFlipped ? {} : {
-                      x: ['-20%', '30%'],
-                      y: ['-20%', '30%']
+                    onMouseMove={handleCardMouseMove}
+                    onMouseLeave={handleCardMouseLeave}
+                    animate={{ 
+                      rotateY: isFlipped ? 180 : 0
                     }}
-                    transition={{
-                      repeat: Infinity,
-                      duration: 4,
-                      ease: "easeInOut"
+                    style={{ 
+                      transformStyle: 'preserve-3d',
+                      rotateY: isFlipped ? 180 + tiltCoords.x * 24 : tiltCoords.x * 24,
+                      rotateX: -tiltCoords.y * 24,
                     }}
-                  />
-                  {/* Subtle multi-colored holographic foil overlay on hover */}
-                  <div className="absolute inset-0 bg-gradient-to-tr from-luxury-magenta/10 via-transparent to-luxury-gold/10 opacity-0 group-hover:opacity-40 transition-opacity duration-500 blend-overlay pointer-events-none" />
-                </div>
-
-                {/* Discovery Hint */}
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: [0, 1, 0] }}
-                  transition={{ duration: 4, repeat: Infinity, repeatDelay: 1 }}
-                  className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                >
-                  <div className="glass px-6 py-3 rounded-full border border-white/10 flex items-center gap-3 backdrop-blur-xl shadow-2xl">
-                    <div className="w-2 h-2 rounded-full bg-luxury-gold animate-pulse shadow-[0_0_10px_rgba(212,175,55,0.8)]" />
-                    <span className="text-[11px] uppercase tracking-[0.3em] font-bold text-white/90">Tap to see profile</span>
-                  </div>
-                </motion.div>
-              </div>
-
-              {/* Back */}
-              <div className="absolute inset-0 backface-hidden [transform:rotateY(180deg)] glass rounded-[2rem] md:rounded-[2.5rem] p-5 md:p-10 flex flex-col justify-between border-luxury-magenta/30 overflow-hidden w-full h-full">
-                {/* Decorative Background for Back */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-luxury-magenta/10 blur-3xl -mr-16 -mt-16 rounded-full" />
-                <div className="absolute bottom-0 left-0 w-32 h-32 bg-luxury-gold/10 blur-3xl -ml-16 -mb-16 rounded-full" />
-
-                <div className="relative z-10 overflow-y-auto pr-2 custom-scrollbar">
-                  <h4 className="text-[8px] md:text-[10px] uppercase tracking-[0.4em] text-pink-300 font-bold mb-3 md:mb-6 flex items-center gap-2">
-                    <div className="w-6 md:w-8 h-px bg-pink-300/30" />
-                    Profile Details
-                  </h4>
-                  
-                  <div className="space-y-3 md:space-y-8">
-                    <div>
-                      <h5 className="text-[8px] md:text-[10px] uppercase tracking-widest text-white/40 mb-1 md:mb-2">Personality</h5>
-                      <p className="text-white/90 leading-relaxed italic text-[11px] md:text-sm">"{currentIdol.personality}"</p>
-                    </div>
+                    transition={isHovering ? { type: "tween", ease: "linear", duration: 0.1 } : { type: "spring", stiffness: 120, damping: 18 }}
+                    className={`w-full h-full relative cursor-pointer select-none rounded-[2.2rem] transition-shadow duration-500 shadow-[0_15px_35px_rgba(0,0,0,0.6)] ${activeTheme.glow} hover:shadow-[0_22px_55px_rgba(255,255,255,0.06)]`}
+                    onClick={() => { setIsFlipped(!isFlipped); playReceivedSound(); }}
+                  >
                     
-                    <div className="space-y-2 md:space-y-5">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[7px] md:text-[10px] text-white/30 uppercase tracking-widest">Interests</span>
-                        <span className="text-[11px] md:text-sm text-white/90 font-medium">{currentIdol.hobbies.join(' • ')}</span>
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[7px] md:text-[10px] text-white/30 uppercase tracking-widest">Taste Preference</span>
-                        <span className="text-[11px] md:text-sm text-white/90 font-medium">{currentIdol.favoriteFood}</span>
-                      </div>
-                      <div className="flex flex-col gap-1 md:gap-1.5 pt-1 md:pt-2">
-                        <span className="text-[7px] md:text-[10px] text-white/30 uppercase tracking-widest">Chemistry Difficulty</span>
-                        <div className="flex gap-1 h-1 md:h-1.5">
-                          {[...Array(10)].map((_, i) => (
-                            <div key={i} className={`flex-1 rounded-full transition-all duration-700 delay-[${i*50}ms] ${i < currentIdol.difficulty ? 'bg-gradient-to-r from-luxury-magenta to-pink-400' : 'bg-white/5'}`} />
-                          ))}
+                    {/* GALLERY FRONT CARD COVER */}
+                    <div className={`absolute inset-0 backface-hidden w-full h-full rounded-[2.2rem] overflow-hidden border ${activeTheme.border} bg-zinc-950`}>
+                      <div 
+                        className="w-full h-full bg-cover bg-center overflow-hidden relative flex flex-col justify-end p-6 md:p-8"
+                        style={{ backgroundImage: `url(${currentIdol.image})` }}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent opacity-85" />
+                        
+                        {/* Static Content Layout */}
+                        <div className="relative z-10 w-full space-y-2 md:space-y-3">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-[7.5px] font-bold uppercase tracking-[0.25em] text-rose-300 border border-rose-500/30 backdrop-blur-md">
+                              {currentIdol.personalityTag}
+                            </span>
+                            <span className="px-2.5 py-0.5 rounded-full bg-white/5 text-[7.5px] font-mono tracking-[0.1em] text-white/60 border border-white/10 backdrop-blur-md">
+                              #09_BIAS
+                            </span>
+                          </div>
+                          
+                          <div>
+                            <h3 className="font-display text-2xl md:text-3.5xl font-extrabold tracking-tight mb-0.5 text-white flex items-center justify-between">
+                              {currentIdol.name}
+                              {/* Hear Voice Floating Pin */}
+                              <button
+                                onClick={(e) => hearVoiceIntro(e, currentIdol)}
+                                className={`w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center transition-all border shadow-md cursor-pointer ${
+                                  speakingId === currentIdol.id
+                                    ? 'bg-rose-500 text-white border-rose-400 animate-pulse'
+                                    : 'bg-black/60 hover:bg-rose-500/35 text-white/95 border-white/10 hover:border-rose-400/50 hover:scale-110 active:scale-95'
+                                }`}
+                                title="Synthesize Voice Announcement"
+                              >
+                                <Volume2 size={13} className={speakingId === currentIdol.id ? 'animate-bounce' : ''} />
+                              </button>
+                            </h3>
+                            <p className="text-luxury-gold text-[9px] md:text-[10px] tracking-[0.25em] uppercase font-bold font-display">{currentIdol.role}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="relative z-10 pt-3 md:pt-8 bg-luxury-black/40 -mx-5 -mb-5 p-5 border-t border-white/5">
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelect(currentIdol);
-                    }}
-                    className="w-full py-3.5 md:py-5 rounded-xl md:rounded-3xl bg-gradient-to-r from-luxury-magenta via-pink-400 to-luxury-gold text-white font-display font-bold uppercase tracking-[0.2em] text-[9px] md:text-xs shadow-lg hover:shadow-luxury-magenta/20 transition-all active:scale-95 group"
-                  >
-                    <span className="flex items-center justify-center gap-2">
-                      Enter Her Heart
-                      <motion.div
-                        animate={{ x: [0, 5, 0] }}
-                        transition={{ repeat: Infinity, duration: 1.5 }}
-                      >
-                        <ChevronRight className="w-3 h-3 md:w-4 md:h-4" />
-                      </motion.div>
-                    </span>
-                  </button>
-                  <p className="text-center text-[7px] md:text-[9px] text-white/30 mt-2 md:mt-4 uppercase tracking-[0.2em]">Tap anywhere to flip back</p>
-                </div>
+                      {/* Foil/Holographic Dynamic Reflection Overlay */}
+                      <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[2.2rem] z-20">
+                        {isHovering && (
+                          <div 
+                            className="absolute inset-0 w-full h-full mix-blend-color-dodge opacity-30 transition-all duration-100"
+                            style={{
+                              background: `radial-gradient(circle at ${50 + tiltCoords.x * 100}% ${50 + tiltCoords.y * 100}%, rgba(255, 255, 255, 0.75) 0%, rgba(255, 80, 200, 0.2) 30%, rgba(80, 200, 255, 0.2) 55%, rgba(0,0,0,0) 80%)`,
+                            }}
+                          />
+                        )}
+                        {/* Dynamic spectrum glow corner overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-rose-500/5 via-transparent to-luxury-gold/5 opacity-40 mix-blend-overlay" />
+                      </div>
+
+                      {/* Floating Interactive Flip Hint */}
+                      <div className="absolute top-4 left-4 z-10 glass border-white/5 py-1 px-2 rounded-full text-[6.5px] font-mono tracking-[0.2em] uppercase text-white/50 flex items-center gap-1.5 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Sparkles size={7} className="text-luxury-gold" />
+                        TAP TO FLIP PROFILE
+                      </div>
+                    </div>
+
+                    {/* GALLERY BACK DETAILED PROFILE */}
+                    <div className={`absolute inset-0 backface-hidden [transform:rotateY(180deg)] rounded-[2.2rem] p-6 md:p-8 border ${activeTheme.border} bg-gradient-to-b ${activeTheme.bg} flex flex-col justify-between overflow-hidden w-full h-full`}>
+                      
+                      {/* Decorative elements representing true collector design */}
+                      <div className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl opacity-25" style={{ backgroundColor: activeTheme.accent }} />
+                      <div className="absolute bottom-0 left-0 w-40 h-40 bg-zinc-950 rounded-full blur-2xl" />
+
+                      <div className="relative z-10 space-y-4 md:space-y-6 flex-1 overflow-y-auto pr-1 select-text custom-scrollbar">
+                        <div className="flex justify-between items-center border-b border-white/5 pb-2 md:pb-3">
+                          <span className="text-[7.5px] font-mono tracking-[0.3em] uppercase text-white/40">COLLECTION CARD #09</span>
+                          <span className="text-[7.5px] font-mono tracking-[0.2em] font-bold text-luxury-gold uppercase">BIAS IDOL</span>
+                        </div>
+
+                        <div className="space-y-3 md:space-y-4">
+                          <div>
+                            <span className="text-[7px] md:text-[8.5px] text-white/40 font-mono tracking-widest uppercase block mb-1">Aura Personality</span>
+                            <p className="text-white/90 leading-relaxed italic text-[10.5px] md:text-xs">"{currentIdol.personality}"</p>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3.5 pt-1">
+                            <div>
+                              <span className="text-[7px] md:text-[8px] text-white/30 font-mono tracking-widest uppercase block mb-0.5">Focus Hobbies</span>
+                              <div className="flex flex-col gap-0.5">
+                                {currentIdol.hobbies.map((h, i) => (
+                                  <span key={i} className="text-[10px] md:text-[11px] text-white/80 font-medium truncate">• {h}</span>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-[7px] md:text-[8px] text-white/30 font-mono tracking-widest uppercase block mb-0.5">Aesthetic Treats</span>
+                              <span className="text-[10px] md:text-[11px] text-white/80 font-medium leading-tight block">{currentIdol.favoriteFood}</span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5 pt-2">
+                            <div className="flex justify-between text-[7px] md:text-[8px] tracking-wider text-white/35 font-mono uppercase">
+                              <span>Chemistry Unlock Friction</span>
+                              <span className="text-rose-400 font-bold">LVL {currentIdol.difficulty}/10</span>
+                            </div>
+                            <div className="flex gap-1 h-1">
+                              {[...Array(10)].map((_, i) => (
+                                <div 
+                                  key={i} 
+                                  className={`flex-1 rounded-full transition-all duration-700 ${
+                                    i < currentIdol.difficulty 
+                                      ? 'bg-gradient-to-r from-rose-500 to-amber-400' 
+                                      : 'bg-white/5'
+                                  }`} 
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Collector's handwriting signature simulation block */}
+                      <div className="relative z-10 border-t border-white/5 pt-4 mt-2 flex flex-col items-center">
+                        <div className="font-serif italic text-sm md:text-base text-white/60 select-none pb-2 tracking-[0.1em] opacity-80">
+                          {currentIdol.name} Loves ONCE
+                        </div>
+                        
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelect(currentIdol);
+                            playSentSound();
+                          }}
+                          className="w-full py-3 md:py-4 rounded-xl bg-gradient-to-r from-rose-500 via-pink-500 to-luxury-gold text-white font-display font-black uppercase tracking-[0.25em] text-[8.5px] md:text-xs shadow-lg hover:shadow-rose-500/20 active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5 cursor-pointer border border-rose-400/20"
+                        >
+                          Unlock Chemistry Hub
+                        </button>
+                        <p className="text-[6.5px] md:text-[8px] text-white/35 font-mono tracking-wider mt-2.5 uppercase select-none">Tap anywhere to flip card back</p>
+                      </div>
+
+                    </div>
+                  </motion.div>
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Slider Hardware Arrow Controls */}
+              <div className="absolute top-1/2 -left-14 md:-left-18 -translate-y-1/2 z-30">
+                <button 
+                  onClick={prev} 
+                  className="w-9 h-9 md:w-11 md:h-11 rounded-full glass border-white/5 flex items-center justify-center hover:bg-white/10 hover:border-white/20 hover:scale-105 active:scale-95 text-white/60 hover:text-white transition-all cursor-pointer shadow-lg"
+                >
+                  <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
+                </button>
+              </div>
+              <div className="absolute top-1/2 -right-14 md:-right-18 -translate-y-1/2 z-30">
+                <button 
+                  onClick={next} 
+                  className="w-9 h-9 md:w-11 md:h-11 rounded-full glass border-white/5 flex items-center justify-center hover:bg-white/10 hover:border-white/20 hover:scale-105 active:scale-95 text-white/60 hover:text-white transition-all cursor-pointer shadow-lg"
+                >
+                  <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
+                </button>
               </div>
             </motion.div>
-          </motion.div>
+          ) : (
+            /* ---- BINDER MODE (9-MEMBER PHOTOCARD GRID) ---- */
+            <motion.div 
+              key="binder_view"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 15 }}
+              className="w-full max-w-5xl px-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-5 max-h-[70vh] overflow-y-auto custom-scrollbar pr-1"
+            >
+              {IDOLS.map((idol, i) => {
+                const idolTheme = IDOL_THEMES[idol.id] || IDOL_THEMES.nayeon;
+                const isSelected = i === index;
+                
+                return (
+                  <motion.div
+                    key={idol.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                    whileHover={{ scale: 1.025, y: -4 }}
+                    onClick={() => {
+                      jumpToIdol(i);
+                      setViewMode('gallery');
+                    }}
+                    className={`relative aspect-[3/4.2] rounded-[1.8rem] overflow-hidden cursor-pointer border hover:shadow-2xl transition-all duration-300 ${
+                      isSelected 
+                        ? `${idolTheme.border} ${idolTheme.glow} scale-[1.015] border-rose-500`
+                        : 'border-white/5 bg-zinc-950/60 hover:border-rose-500/30'
+                    }`}
+                  >
+                    {/* Background image covering card */}
+                    <div 
+                      className="absolute inset-0 bg-cover bg-center transition-transform duration-700 hover:scale-105"
+                      style={{ backgroundImage: `url(${idol.image})` }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-85" />
+
+                    {/* Active Selected Stamp */}
+                    {isSelected && (
+                      <div className="absolute top-3 left-3 bg-rose-500 text-white p-1 rounded-full border border-pink-400/50 shadow-md">
+                        <Check size={8} strokeWidth={4} />
+                      </div>
+                    )}
+
+                    {/* Compact layout */}
+                    <div className="absolute inset-x-0 bottom-0 p-3.5 md:p-5 flex flex-col gap-1 z-10">
+                      <span className={`text-[6px] md:text-[7.5px] uppercase tracking-widest font-mono font-black ${idolTheme.text}`}>
+                        {idol.personalityTag}
+                      </span>
+                      <div className="flex items-center justify-between min-w-0">
+                        <h4 className="font-display font-extrabold text-sm md:text-base text-white truncate mr-2">
+                          {idol.name}
+                        </h4>
+                        
+                        {/* Audio speaker trigger */}
+                        <button
+                          onClick={(e) => hearVoiceIntro(e, idol)}
+                          className={`w-6 h-6 rounded-full flex items-center justify-center transition-all flex-shrink-0 cursor-pointer ${
+                            speakingId === idol.id
+                              ? 'bg-rose-500 text-white animate-pulse'
+                              : 'bg-black/60 hover:bg-rose-500/40 text-rose-300'
+                          }`}
+                        >
+                          <Volume2 size={10} />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          )}
         </AnimatePresence>
-
-        <div className="hidden md:block absolute top-1/2 -left-16 -translate-y-1/2">
-          <button onClick={prev} className="w-12 h-12 rounded-full glass flex items-center justify-center hover:bg-white/10 transition-colors">
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-        </div>
-        <div className="hidden md:block absolute top-1/2 -right-16 -translate-y-1/2">
-          <button onClick={next} className="w-12 h-12 rounded-full glass flex items-center justify-center hover:bg-white/10 transition-colors">
-            <ChevronRight className="w-6 h-6" />
-          </button>
-        </div>
-
-        {/* Mobile Navigation Dots */}
-        <div className="flex md:hidden justify-center items-center gap-3 mt-8 absolute -bottom-12 left-0 right-0">
-          <button onClick={prev} className="p-2 text-white/20 hover:text-white transition-colors">
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex gap-1.5 items-center">
-            {IDOLS.map((_, i) => (
-              <div 
-                key={i} 
-                className={`transition-all duration-300 rounded-full ${i === index ? 'w-4 h-1.5 bg-luxury-magenta shadow-[0_0_8px_rgba(255,51,119,0.5)]' : 'w-1.5 h-1.5 bg-white/20'}`} 
-              />
-            ))}
-          </div>
-          <button onClick={next} className="p-2 text-white/20 hover:text-white transition-colors">
-            <ChevronRight size={20} />
-          </button>
-        </div>
       </div>
 
-      <footer className="fixed bottom-12 flex items-center gap-4 text-white/20">
-        <Star className="w-4 h-4 fill-current" />
-        <div className="w-24 h-px bg-current" />
-        <p className="text-[10px] uppercase tracking-[0.3em]">Tap card for info</p>
-        <div className="w-24 h-px bg-current" />
-        <Star className="w-4 h-4 fill-current" />
-      </footer>
+      {/* Ribbon Portrait indicator bar at the bottom for quick visual navigation */}
+      {viewMode === 'gallery' && (
+        <footer className="w-full max-w-lg relative z-20 flex flex-col items-center gap-3">
+          <div className="flex items-center gap-1">
+            <Star size={9} className="text-luxury-gold fill-current" />
+            <span className="text-[8px] font-mono tracking-[0.3em] uppercase text-white/35">
+              PHOTOCARD INDEX ({index + 1}/{IDOLS.length})
+            </span>
+            <Star size={9} className="text-luxury-gold fill-current" />
+          </div>
+
+          <div className="w-full flex justify-center items-center gap-2 overflow-x-auto py-1.5 custom-scrollbar px-2 max-w-full">
+            {IDOLS.map((idol, i) => {
+              const themeForThumb = IDOL_THEMES[idol.id] || IDOL_THEMES.nayeon;
+              const isActive = i === index;
+              
+              return (
+                <button
+                  key={idol.id}
+                  onClick={() => jumpToIdol(i)}
+                  className={`w-9 h-9 md:w-11 md:h-11 rounded-full border overflow-hidden relative transition-all duration-300 cursor-pointer flex-shrink-0 ${
+                    isActive
+                      ? `border-rose-500 ${themeForThumb.glow} scale-110 ring-2 ring-rose-500/20`
+                      : 'border-white/10 opacity-40 hover:opacity-85 hover:scale-105'
+                  }`}
+                  title={`View ${idol.name}`}
+                >
+                  <div 
+                    className="w-full h-full bg-cover bg-center"
+                    style={{ backgroundImage: `url(${idol.image})` }}
+                  />
+                </button>
+              );
+            })}
+          </div>
+        </footer>
+      )}
+
+      {/* Decorative credit overlay footer */}
+      {viewMode === 'binder' && (
+        <footer className="w-full max-w-md relative z-20 flex items-center justify-center gap-4 text-white/15">
+          <div className="w-12 h-px bg-current" />
+          <p className="text-[8px] uppercase tracking-[0.3em] font-mono">GRID COMPLETED • 9 BIASES LOADED</p>
+          <div className="w-12 h-px bg-current" />
+        </footer>
+      )}
+
     </div>
   );
 }

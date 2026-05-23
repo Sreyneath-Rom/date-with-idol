@@ -38,7 +38,7 @@ export default function CinematicIntro({ onComplete }: Props) {
           <img
             alt="TWICE Special Album 'TEN: The Story Goes On' - Concept Photos"
             src="https://legacy.kpopping.com/28/2/TWICE-Special-Album-TEN-The-Story-Goes-On-Concept-Photos-documents-1(1).jpeg"
-            className="absolute inset-0 w-full h-full object-cover object-center scale-105"
+            className="absolute inset-0 w-full h-full object-fit object-center scale-105"
           />
         </div>
 

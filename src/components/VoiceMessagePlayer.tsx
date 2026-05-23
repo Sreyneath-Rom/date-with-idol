@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Volume2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface Props {
   audioUrl: string;
@@ -99,17 +100,36 @@ export default function VoiceMessagePlayer({ audioUrl, sender, isActive, onPlay,
           : 'bg-white/10 border-white/20 text-white font-medium'
       }`}
     >
-      <button 
+      <motion.button 
         id={`voice-play-toggle-${sender}`}
         onClick={togglePlay}
-        className={`w-9 h-9 flex items-center justify-center rounded-full transition-all duration-300 transform active:scale-90 flex-shrink-0 cursor-pointer ${
+        whileTap={{ scale: 0.82 }}
+        transition={{ type: "spring", stiffness: 400, damping: 15 }}
+        className={`w-9 h-9 flex items-center justify-center rounded-full transition-all duration-300 flex-shrink-0 cursor-pointer relative overflow-hidden ${
           sender === 'idol'
-            ? 'bg-gradient-to-r from-luxury-magenta to-rose-600 hover:from-rose-500 hover:to-luxury-magenta text-white shadow-[0_2px_8px_rgba(255,51,119,0.3)]'
+            ? isPlaying
+              ? 'bg-gradient-to-r from-luxury-magenta to-rose-600 text-white shadow-[0_0_15px_rgba(255,51,119,0.8)] border border-luxury-magenta/30'
+              : 'bg-gradient-to-r from-luxury-magenta to-rose-600 hover:from-rose-500 hover:to-luxury-magenta text-white shadow-[0_2px_8px_rgba(255,51,119,0.3)] hover:shadow-[0_4px_12px_rgba(255,51,119,0.5)]'
             : 'bg-white text-luxury-black hover:bg-neutral-100 shadow-[0_2px_8px_rgba(0,0,0,0.15)] font-bold'
         }`}
       >
-        {isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}
-      </button>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={isPlaying ? "pause" : "play"}
+            initial={{ rotate: -135, scale: 0.2, opacity: 0 }}
+            animate={{ rotate: 0, scale: 1, opacity: 1 }}
+            exit={{ rotate: 135, scale: 0.2, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.34, 1.56, 0.64, 1] }}
+            className="flex items-center justify-center absolute"
+          >
+            {isPlaying ? (
+              <Pause size={14} fill="currentColor" />
+            ) : (
+              <Play size={14} fill="currentColor" className="ml-0.5" />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </motion.button>
 
       <div className="flex-1 min-w-0 space-y-1">
         {/* Progress track */}
