@@ -171,11 +171,19 @@ export default function MiniVoicePlayer({ audioUrl, isActive, onPlay, onPause, i
   }, [audioUrl]);
 
   useEffect(() => {
-    if (!isActive && isPlaying) {
+    if (isActive && !isPlaying) {
+      if (audioRef.current && !isPreloading && !hasError) {
+        audioRef.current.play().then(() => {
+          setIsPlaying(true);
+        }).catch(err => {
+          console.error("Failed to autoplay MiniVoicePlayer:", err);
+        });
+      }
+    } else if (!isActive && isPlaying) {
       setIsPlaying(false);
       audioRef.current?.pause();
     }
-  }, [isActive, isPlaying]);
+  }, [isActive, isPlaying, isPreloading, hasError]);
 
   const togglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();

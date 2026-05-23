@@ -1428,7 +1428,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
                 <div className="relative">
                   <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-cover bg-center border border-white/10" style={{ backgroundImage: `url(${currentGroup ? currentGroup.image : currentIdol.image})` }} />
                   {!currentGroup && (
-                    <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 md:w-4 md:h-4 border-2 border-luxury-black rounded-full transition-colors duration-500 ${isAway ? 'bg-amber-500' : 'bg-green-500'}`} />
+                    <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 md:w-4 md:h-4 border-2 border-luxury-black rounded-full transition-colors duration-500 ${isTyping ? 'bg-rose-500 animate-pulse' : isAway ? 'bg-amber-500' : 'bg-green-500'}`} />
                   )}
                 </div>
                 <div>
@@ -1437,9 +1437,9 @@ export default function ChatRoom({ idol, onBack }: Props) {
                     <Sparkles size={11} className="text-luxury-gold animate-bounce" />
                   </h3>
                   <div className="flex items-center gap-1.5">
-                    <span className={`w-1 md:w-1.5 h-1 md:h-1.5 rounded-full animate-pulse transition-colors duration-500 bg-green-500`} />
-                    <span className={`text-[8px] md:text-[10px] uppercase tracking-widest font-black leading-none transition-colors duration-500 text-green-500`}>
-                      {currentGroup ? `${currentGroup.members.length} Members Active` : isAway ? 'Away' : 'Online'}
+                    <span className={`w-1 md:w-1.5 h-1 md:h-1.5 rounded-full animate-pulse transition-colors duration-500 ${isTyping ? 'bg-rose-500' : isAway ? 'bg-amber-500' : 'bg-green-500'}`} />
+                    <span className={`text-[8px] md:text-[10px] uppercase tracking-widest font-black leading-none transition-colors duration-500 ${isTyping ? 'text-rose-400' : isAway ? 'text-amber-500' : 'text-green-500'}`}>
+                      {currentGroup ? (isTyping ? 'Members Typing...' : `${currentGroup.members.length} Members Active`) : isTyping ? 'Typing...' : isAway ? 'Away' : 'Online'}
                     </span>
                   </div>
                 </div>

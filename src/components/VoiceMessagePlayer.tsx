@@ -57,9 +57,17 @@ export default function VoiceMessagePlayer({ audioUrl, sender, isActive, onPlay,
     };
   }, [audioUrl]);
 
-  // Handle external play state changes (if another audio starts playing, isActive is set to false)
+  // Handle external play state changes
   useEffect(() => {
-    if (!isActive && isPlaying) {
+    if (isActive && !isPlaying) {
+      if (audioRef.current) {
+        audioRef.current.play().then(() => {
+          setIsPlaying(true);
+        }).catch(err => {
+          console.error("Failed to autoplay VoiceMessagePlayer:", err);
+        });
+      }
+    } else if (!isActive && isPlaying) {
       setIsPlaying(false);
       audioRef.current?.pause();
     }

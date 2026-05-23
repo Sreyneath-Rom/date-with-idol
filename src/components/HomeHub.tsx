@@ -97,23 +97,24 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
     <div className="min-h-screen bg-luxury-black text-white relative overflow-y-auto xl:overflow-hidden flex flex-col justify-between p-4 md:p-6 lg:p-10 select-none pb-24 xl:pb-10">
       
       {/* Dynamic Ambient Space Overlay */}
-      <div className="absolute inset-0 w-full h-full overflow-hidden opacity-25 z-0 pointer-events-none transition-all duration-1000">
+      <div className="absolute inset-0 w-full h-full overflow-hidden opacity-30 z-0 pointer-events-none transition-all duration-1000">
         <div 
-          className="absolute inset-x-0 top-0 w-full h-full bg-gradient-to-b opacity-40 transition-all duration-1000"
+          className="absolute inset-x-0 top-0 w-full h-full bg-gradient-to-b opacity-50 transition-all duration-1000"
           style={{ backgroundImage: `linear-gradient(to bottom, ${activeColor}33, transparent)` }}
         />
-        <div
-          className="absolute inset-0 bg-center bg-cover scale-105 filter blur-sm translate-y-2 opacity-60"
-          style={{ backgroundImage: `url('https://legacy.kpopping.com/c8/0/TWICE-SPECIAL-ALBUM-TEN-The-Story-Goes-On-documents-1.jpeg')` }}
+        <img
+          src="https://legacy.kpopping.com/c8/0/TWICE-SPECIAL-ALBUM-TEN-The-Story-Goes-On-documents-1.jpeg"
+          alt="Twice Collective Backdrop"
+          referrerPolicy="no-referrer"
+          className="absolute inset-0 w-full h-full object-cover object-center scale-105 filter blur-lg opacity-40 transition-all duration-1000"
         />
-        
       </div>
 
-      <div className="absolute inset-0 bg-gradient-to-t from-luxury-black via-luxury-black/90 to-luxury-black/50 z-0 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-t from-luxury-black via-luxury-black/95 to-luxury-black/40 z-0 pointer-events-none" />
 
       {/* Glow Ambient Lights */}
       <div 
-        className="absolute top-1/3 left-1/4 w-[500px] h-[500px] blur-[150px] rounded-full opacity-10 pointer-events-none transition-all duration-1000"
+        className="absolute top-1/3 left-1/4 w-[500px] h-[500px] blur-[150px] rounded-full opacity-15 pointer-events-none transition-all duration-1000"
         style={{ backgroundColor: activeColor }}
       />
 
@@ -124,7 +125,7 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
           animate={{ x: 0, opacity: 1 }}
           className="space-y-1 text-center sm:text-left"
         >
-          <div className="flex items-center justify-center sm:justify-start gap-2 text-rose-400">
+          <div className="flex items-center justify-center sm:justify-start gap-2" style={{ color: activeColor }}>
             <Clock className="w-3.5 h-3.5" />
             <span className="text-[9px] md:text-[10px] uppercase tracking-[0.25em] font-black font-mono">
               {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • SEOUL
@@ -189,9 +190,15 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
           className="xl:col-span-3 flex flex-col gap-4 md:gap-5 w-full order-2 xl:order-1"
         >
           {/* Card: Aura Chemistry Status */}
-          <div className="glass p-5 rounded-[1.8rem] border-white/5 shadow-xl space-y-4">
+          <div 
+            className="glass p-5 rounded-[1.8rem] border transition-all duration-300 hover:scale-[1.01]"
+            style={{ 
+              borderColor: `${activeColor}20`,
+              boxShadow: `0 15px 35px -15px ${activeColor}15, inset 0 1px 1px rgba(255,255,255,0.05)`
+            }}
+          >
             <div className="flex justify-between items-center border-b border-white/5 pb-2">
-              <span className="text-[8px] font-mono tracking-widest uppercase text-white/45 flex items-center gap-1.5">
+              <span className="text-[8px] font-mono tracking-widest uppercase text-white/45 flex items-center gap-1.5 font-sans">
                 <Compass size={11} className="text-rose-400" />
                 CHEMISTRY STATUS
               </span>
@@ -226,8 +233,14 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
           </div>
 
           {/* Card: Bio-data Highlights */}
-          <div className="glass p-5 rounded-[1.8rem] border-white/5 shadow-xl space-y-3">
-            <span className="text-[8px] font-mono tracking-widest uppercase text-white/45 block mb-1">BIAS PARAMETERS</span>
+          <div 
+            className="glass p-5 rounded-[1.8rem] border transition-all duration-300 hover:scale-[1.01]"
+            style={{ 
+              borderColor: `${activeColor}15`,
+              boxShadow: `0 15px 35px -15px ${activeColor}10, inset 0 1px 1px rgba(255,255,255,0.02)`
+            }}
+          >
+            <span className="text-[8px] font-mono tracking-widest uppercase text-white/45 block mb-1 font-sans">BIAS PARAMETERS</span>
             <div className="grid grid-cols-2 gap-3.5">
               <div className="p-2.5 rounded-2xl bg-white/5 border border-white/5">
                 <span className="text-[7.5px] font-mono text-white/30 block tracking-widest uppercase mb-0.5">Role Group</span>
@@ -277,20 +290,24 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.5 }}
             onClick={triggerVoiceGreeting}
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-[290px] md:max-w-[340px] glass p-4 md:p-5 rounded-[1.8rem] border-white/5 hover:border-rose-400/20 shadow-2xl backdrop-blur-3xl cursor-pointer hover:scale-[1.03] active:scale-[0.98] transition-all flex flex-col gap-1 z-20"
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 w-full max-w-[290px] md:max-w-[340px] glass p-4 md:p-5 rounded-[1.8rem] border hover:scale-[1.03] active:scale-[0.98] transition-all flex flex-col gap-1 z-20 shadow-2xl backdrop-blur-3xl"
+            style={{ 
+              borderColor: `${activeColor}30`,
+              boxShadow: `0 15px 35px -10px ${activeColor}20` 
+            }}
           >
             <div className="flex justify-between items-center border-b border-white/5 pb-1.5">
               <div className="flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${isSpeaking ? 'bg-rose-500 animate-ping' : 'bg-rose-400'}`} />
-                <span className="text-[8.5px] font-mono tracking-widest text-rose-300 font-black uppercase">Voice Introduction</span>
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse mr-0.5" style={{ backgroundColor: activeColor }} />
+                <span className="text-[8.5px] font-mono tracking-widest font-black uppercase font-sans" style={{ color: activeColor }}>Voice Introduction</span>
               </div>
               
               {/* Voice Equalizer lines simulation to look active when speaking */}
               {isSpeaking ? (
                 <div className="flex items-center gap-0.5 h-2.5">
-                  <span className="w-0.5 h-full bg-rose-400 animate-bounce delay-100" />
-                  <span className="w-0.5 h-full bg-rose-400 animate-bounce delay-200" style={{ animationDuration: '0.6s' }} />
-                  <span className="w-0.5 h-full bg-rose-400 animate-bounce" />
+                  <span className="w-0.5 h-full animate-bounce delay-100" style={{ backgroundColor: activeColor }} />
+                  <span className="w-0.5 h-full animate-bounce delay-200" style={{ animationDuration: '0.6s', backgroundColor: activeColor }} />
+                  <span className="w-0.5 h-full animate-bounce" style={{ backgroundColor: activeColor }} />
                 </div>
               ) : (
                 <span className="text-[7px] font-mono tracking-widest text-white/35 flex items-center gap-1 mb-0.5">
@@ -314,18 +331,24 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
           className="xl:col-span-3 flex flex-col gap-4 md:gap-5 w-full order-3"
         >
           {/* Card: Daily Chemistry Mission */}
-          <div className="glass p-5 rounded-[1.8rem] border-white/5 shadow-xl space-y-4 relative overflow-hidden">
+          <div 
+            className="glass p-5 rounded-[1.8rem] border shadow-xl space-y-4 relative overflow-hidden transition-all duration-300 hover:scale-[1.01]"
+            style={{ 
+              borderColor: `${activeColor}20`,
+              boxShadow: `0 15px 35px -15px ${activeColor}15, inset 0 1px 1px rgba(255,255,255,0.05)`
+            }}
+          >
             {/* Corner aesthetic badge */}
             <div className="absolute top-0 right-0 p-1 bg-gradient-to-l from-rose-500/10 to-transparent text-[6.5px] font-bold font-mono tracking-widest text-rose-300 uppercase px-2 rounded-bl-xl border-l border-b border-white/5">
               ACTIVE QUEST
             </div>
 
             <div className="space-y-1">
-              <span className="text-[8px] font-mono tracking-widest text-white/45 uppercase flex items-center gap-1.5 leading-none">
+              <span className="text-[8px] font-mono tracking-widest text-white/45 uppercase flex items-center gap-1.5 leading-none font-sans">
                 <Star size={11} className="text-luxury-gold fill-luxury-gold/20" />
                 DAILY MISSION
               </span>
-              <p className="text-[9px] text-[#FFADAD] uppercase font-bold tracking-wider">{idol.name}'s Choice</p>
+              <p className="text-[9px] uppercase font-bold tracking-wider" style={{ color: activeColor }}>{idol.name}'s Choice</p>
             </div>
 
             <div className="bg-white/5 border border-white/5 p-4 rounded-2xl select-text">
@@ -338,15 +361,22 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
             <button
               onClick={() => { onNavigate('chat'); playSentSound(); }}
               className="w-full py-3.5 rounded-xl bg-gradient-to-r from-rose-500/15 via-rose-500/20 to-pink-500/10 hover:from-rose-500/30 hover:to-pink-500/20 text-rose-300 font-display font-medium text-xs tracking-wider uppercase transition-all duration-300 border border-rose-500/30 active:scale-[0.97] cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+              style={{ borderColor: `${activeColor}40` }}
             >
-              <MessageSquare size={13} className="text-rose-400" />
+              <MessageSquare size={13} className="text-rose-400" style={{ color: activeColor }} />
               Start Interactive Chat
             </button>
           </div>
 
           {/* Quick-links Bento Action Shortcuts */}
-          <div className="glass p-5 rounded-[1.8rem] border-white/5 shadow-xl space-y-3.5">
-            <span className="text-[8px] font-mono tracking-widest uppercase text-white/45 block mb-0.5">CHEMISTRY QUICK ACTIVATOR</span>
+          <div 
+            className="glass p-5 rounded-[1.8rem] border shadow-xl space-y-3.5 transition-all duration-300 hover:scale-[1.01]"
+            style={{ 
+              borderColor: `${activeColor}20`,
+              boxShadow: `0 15px 35px -15px ${activeColor}15, inset 0 1px 1px rgba(255,255,255,0.05)`
+            }}
+          >
+            <span className="text-[8px] font-mono tracking-widest uppercase text-white/45 block mb-0.5 font-sans">CHEMISTRY QUICK ACTIVATOR</span>
             
             <div className="flex flex-col gap-2">
               <button
@@ -393,31 +423,30 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
           transition={{ delay: 0.3 }}
           className="max-w-md mx-auto glass p-2 rounded-2xl md:rounded-[2.2rem] flex items-center justify-between shadow-2xl border-white/5 backdrop-blur-3xl"
         >
-          <NavButton icon={<Home />} label="Home" active={true} onClick={() => onNavigate('hub')} />
-          <NavButton icon={<MessageSquare />} label="Chat" onClick={() => onNavigate('chat')} />
-          <NavButton icon={<MapPin />} label="Dates" onClick={() => onNavigate('date')} />
-          <NavButton icon={<Shirt />} label="Closet" onClick={() => onNavigate('closet')} />
-          <NavButton icon={<Camera />} label="Memories" onClick={() => onNavigate('memories')} />
+          <NavButton icon={<Home />} label="Home" active={true} onClick={() => onNavigate('hub')} activeColor={activeColor} />
+          <NavButton icon={<MessageSquare />} label="Chat" onClick={() => onNavigate('chat')} activeColor={activeColor} />
+          <NavButton icon={<MapPin />} label="Dates" onClick={() => onNavigate('date')} activeColor={activeColor} />
+          <NavButton icon={<Shirt />} label="Closet" onClick={() => onNavigate('closet')} activeColor={activeColor} />
+          <NavButton icon={<Camera />} label="Memories" onClick={() => onNavigate('memories')} activeColor={activeColor} />
         </motion.div>
       </footer>
-
-      {/* Persistent System Version Overlay Info */}
-      <div className="fixed bottom-3 left-4 p-2 opacity-5 pointer-events-none z-50 text-[6.5px] font-mono tracking-widest uppercase block">
-        TWICE HUB SYSTM v2.5.0 • PORT 3000 • CHNL STABLE
-      </div>
-    </div >
+    </div>
   );
 }
 
-function NavButton({ icon, label, active = false, onClick }: { icon: React.ReactNode, label: string, active?: boolean, onClick: () => void }) {
+function NavButton({ icon, label, active = false, onClick, activeColor }: { icon: React.ReactNode, label: string, active?: boolean, onClick: () => void, activeColor?: string }) {
   return (
     <button
       onClick={() => { onClick(); playReceivedSound(); }}
       className={`flex flex-col items-center justify-center w-14 h-14 md:w-16 md:h-16 rounded-xl md:rounded-[1.8rem] transition-all duration-300 gap-1.5 cursor-pointer relative ${
         active 
-          ? 'bg-rose-500 text-white font-black shadow-md shadow-rose-500/10' 
+          ? 'text-white font-black' 
           : 'text-white/40 hover:text-white/80 hover:bg-white/5'
       }`}
+      style={active && activeColor ? {
+        backgroundColor: activeColor,
+        boxShadow: `0 10px 20px -5px ${activeColor}50`
+      } : {}}
     >
       {React.cloneElement(icon as React.ReactElement<any>, { size: 16 })}
       <span className="text-[7.5px] md:text-[8px] uppercase tracking-wider font-bold leading-none">{label}</span>
