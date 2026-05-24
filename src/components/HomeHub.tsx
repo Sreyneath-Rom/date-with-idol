@@ -2,16 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   MessageSquare, Heart, Camera, Home, Sparkles, 
-  Clock, Cloud, LogOut, Volume2, Award, Zap, Compass, Star, Mic
+  Clock, Cloud, LogOut, Volume2, Award, Zap, Compass, Star, Mic, X, Calendar, BookOpen
 } from 'lucide-react';
-import { Idol, AppView } from '../types';
+import { Idol, AppView, StatusUpdate, UserProfile, DynamicEvent } from '../types';
 import { useFirebase } from '../lib/FirebaseContext';
 import { speakText, playSentSound, playReceivedSound } from '../utils/audio';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { collection, doc, onSnapshot, setDoc, updateDoc, increment } from 'firebase/firestore';
+import { DEFAULT_STATUS_UPDATES } from '../constants';
+import EventCenter from './EventCenter';
+import DateScene from './DateScene';
+import StoryEpisodes from './StoryEpisodes';
 
 interface Props {
   idol: Idol;
   onNavigate: (view: AppView) => void;
-  affection: number;
+  profile: UserProfile;
+  onUpdateProfile: (newProfile: UserProfile) => void;
 }
 
 const IDOL_MISSIONS: Record<string, string> = {
@@ -58,7 +65,7 @@ function getAffinityLevel(score: number): { title: string; desc: string; textSty
   return { title: 'Destined Soulmates 👑', desc: 'Hearts beat in perfect sync.', textStyle: 'text-amber-400 border-amber-500/35 bg-amber-500/5 shadow-[0_0_15px_rgba(245,158,11,0.08)]', tier: 'TIER I' };
 }
 
-export default function HomeHub({ idol, onNavigate, affection }: Props) {
+export default function HomeHub({ idol, onNavigate, profile, onUpdateProfile }: Props) {
   const { user, loginWithGoogle, logout } = useFirebase();
   const [time, setTime] = useState(new Date());
   const [greeting, setGreeting] = useState('');
@@ -66,10 +73,123 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
   const [showExitHint, setShowExitHint] = useState(false);
   const [activeCloneName, setActiveCloneName] = useState<string>('');
 
+  const [updates, setUpdates] = useState<StatusUpdate[]>([]);
+  const [loadingUpdates, setLoadingUpdates] = useState(true);
+  const [showStatusUpdates, setShowStatusUpdates] = useState(false);
+
+  // Sprint / Option panel states
+  const [showEventsPanel, setShowEventsPanel] = useState(false);
+  const [showStoryEpisodes, setShowStoryEpisodes] = useState(false);
+  const [activeDateEvent, setActiveDateEvent] = useState<DynamicEvent | null>(null);
+
+  const handleAddStats = (stats: Partial<UserProfile>) => {
+    const updated = {
+      ...profile,
+      affection: Math.min(100, (profile.affection || 0) + (stats.affection || 0)),
+      trust: Math.min(100, (profile.trust || 0) + (stats.trust || 0)),
+      chemistry: Math.min(100, (profile.chemistry || 0) + (stats.chemistry || 0)),
+      comfort: Math.min(100, (profile.comfort || 0) + (stats.comfort || 0))
+    };
+    onUpdateProfile(updated);
+  };
+  const [likedUpdates, setLikedUpdates] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem(`bubble_liked_updates_${idol.id}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch (_) { return {}; }
+  });
+
+  const triggerHaptic = (pattern: number | number[] = 10) => {
+    try {
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(pattern);
+      }
+    } catch (_) {}
+  };
+
+  useEffect(() => {
+    if (!user) {
+      const local = DEFAULT_STATUS_UPDATES[idol.id] || [];
+      setUpdates(local);
+      setLoadingUpdates(false);
+      return;
+    }
+
+    setLoadingUpdates(true);
+    const updatesColRef = collection(db, 'idols', idol.id, 'status_updates');
+
+    // Subscribe to real-time status updates subcollection
+    const unsubscribe = onSnapshot(updatesColRef, async (snapshot) => {
+      if (snapshot.empty) {
+        // Automatically seed the subcollection if it doesn't exist
+        try {
+          const defaults = DEFAULT_STATUS_UPDATES[idol.id] || [];
+          for (const item of defaults) {
+            await setDoc(doc(db, 'idols', idol.id, 'status_updates', item.id), item);
+          }
+        } catch (error) {
+          console.error("Auto seeding of updates failed:", error);
+          const defaults = DEFAULT_STATUS_UPDATES[idol.id] || [];
+          setUpdates(defaults);
+          setLoadingUpdates(false);
+        }
+      } else {
+        const list: StatusUpdate[] = [];
+        snapshot.forEach((docSnap) => {
+          list.push(docSnap.data() as StatusUpdate);
+        });
+        list.sort((a, b) => b.timestamp - a.timestamp);
+        setUpdates(list);
+        setLoadingUpdates(false);
+      }
+    }, (error) => {
+      try {
+        handleFirestoreError(error, OperationType.LIST, `idols/${idol.id}/status_updates`);
+      } catch (_) {}
+      // Fallback
+      const defaults = DEFAULT_STATUS_UPDATES[idol.id] || [];
+      setUpdates(defaults);
+      setLoadingUpdates(false);
+    });
+
+    return () => unsubscribe();
+  }, [user, idol.id]);
+
+  const handleLikeUpdate = async (updateId: string) => {
+    triggerHaptic(10);
+    const alreadyLiked = likedUpdates[updateId];
+    const updatedLiked = { ...likedUpdates, [updateId]: !alreadyLiked };
+    setLikedUpdates(updatedLiked);
+    try {
+      localStorage.setItem(`bubble_liked_updates_${idol.id}`, JSON.stringify(updatedLiked));
+    } catch (_) {}
+
+    const diff = alreadyLiked ? -1 : 1;
+    setUpdates(prev => prev.map(up => {
+      if (up.id === updateId) {
+        return { ...up, likes: Math.max(0, up.likes + diff) };
+      }
+      return up;
+    }));
+
+    if (user) {
+      try {
+        const docRef = doc(db, 'idols', idol.id, 'status_updates', updateId);
+        await updateDoc(docRef, {
+          likes: increment(diff)
+        });
+      } catch (error) {
+        try {
+          handleFirestoreError(error, OperationType.UPDATE, `idols/${idol.id}/status_updates/${updateId}`);
+        } catch (_) {}
+      }
+    }
+  };
+
   const activeMission = IDOL_MISSIONS[idol.id] || IDOL_MISSIONS.nayeon;
   const activeAura = IDOL_AURA_COLOR[idol.id] || IDOL_AURA_COLOR.nayeon;
   const activeColor = IDOL_NEON[idol.id] || '#FF3377';
-  const affinity = getAffinityLevel(affection);
+  const affinity = getAffinityLevel(profile.affection || 12);
 
   useEffect(() => {
     try {
@@ -240,12 +360,12 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
               <div className="space-y-1.5">
                 <div className="flex justify-between text-[8px] font-mono tracking-widest text-white/35 uppercase">
                   <span>Current Bond Level</span>
-                  <span className="text-rose-400 font-bold">{affection}%</span>
+                  <span className="text-rose-400 font-bold">{profile.affection || 12}%</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-white/5 relative overflow-hidden">
                   <motion.div 
                     initial={{ width: 0 }}
-                    animate={{ width: `${affection}%` }}
+                    animate={{ width: `${profile.affection || 12}%` }}
                     transition={{ duration: 1, ease: "easeOut" }}
                     style={{ background: `linear-gradient(to right, ${activeColor}, #FFA07A)` }}
                     className="h-full rounded-full"
@@ -472,6 +592,36 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
                 </span>
                 <span className="text-[9px] font-mono text-white/30 font-bold">&#10095;</span>
               </button>
+
+              <button
+                onClick={() => { setShowEventsPanel(true); playReceivedSound(); }}
+                className="w-full py-2.5 px-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/15 cursor-pointer text-left text-xs font-semibold uppercase tracking-wider text-amber-200/95 transition-all flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2">
+                  <Zap size={12} className="text-amber-400 animate-pulse-soft" /> Event Center
+                </span>
+                <span className="text-[9px] font-mono text-white/30 font-bold">&#10095;</span>
+              </button>
+
+              <button
+                onClick={() => { setShowStoryEpisodes(true); playReceivedSound(); }}
+                className="w-full py-2.5 px-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/15 cursor-pointer text-left text-xs font-semibold uppercase tracking-wider text-purple-200/95 transition-all flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2">
+                  <BookOpen size={12} className="text-purple-400" /> Story Episodes
+                </span>
+                <span className="text-[9px] font-mono text-white/30 font-bold">&#10095;</span>
+              </button>
+
+              <button
+                onClick={() => { setShowStatusUpdates(true); playReceivedSound(); }}
+                className="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-luxury-gold/5 to-transparent hover:from-luxury-gold/15 hover:to-white/5 border border-luxury-gold/20 hover:border-luxury-gold/45 cursor-pointer text-left text-xs font-semibold uppercase tracking-wider text-amber-200 transition-all flex items-center justify-between shadow-sm"
+              >
+                <span className="flex items-center gap-2">
+                  <Sparkles size={12} className="text-luxury-gold" /> Status Updates
+                </span>
+                <span className="text-[9px] font-mono text-luxury-gold font-bold">&#10095;</span>
+              </button>
             </div>
           </div>
 
@@ -492,6 +642,211 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
           <NavButton icon={<Camera />} label="Memories" onClick={() => onNavigate('memories')} activeColor={activeColor} />
         </motion.div>
       </footer>
+
+      {/* Event Center Panel */}
+      <AnimatePresence>
+        {showEventsPanel && (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 15 }}
+            className="fixed inset-0 z-40 bg-luxury-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <EventCenter
+              idol={idol}
+              onClose={() => setShowEventsPanel(false)}
+              onAddStats={handleAddStats}
+              onEnterDate={(ev) => {
+                setShowEventsPanel(false);
+                setActiveDateEvent(ev);
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Story Episodes Panel */}
+      <AnimatePresence>
+        {showStoryEpisodes && (
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 15 }}
+            className="fixed inset-0 z-40 bg-luxury-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <StoryEpisodes
+              idol={idol}
+              currentAffection={profile.affection || 12}
+              onClose={() => setShowStoryEpisodes(false)}
+              onSelectEpisode={(title) => {
+                setShowStoryEpisodes(false);
+                // Trigger customized romance date scene simulating story playthrough choice consequences!
+                setActiveDateEvent({
+                  id: `story_ev_${Date.now()}`,
+                  type: 'date',
+                  title: title,
+                  description: `Step inside chapter: ${title}`,
+                  expiresAt: Date.now() + 1000 * 60 * 60
+                });
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Interactive Cyber dating Choice Simulator */}
+      {activeDateEvent && (
+        <DateScene
+          idol={idol}
+          eventName={activeDateEvent.title}
+          onClose={() => setActiveDateEvent(null)}
+          onAddStats={handleAddStats}
+        />
+      )}
+
+      {/* Immersive Idol Status Updates Modal */}
+      <AnimatePresence>
+        {showStatusUpdates && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-luxury-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50"
+          >
+            {/* Modal Container */}
+            <motion.div
+              initial={{ scale: 0.95, y: 30 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 30 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              className="bg-luxury-black/95 border border-white/10 rounded-[2.2rem] w-full max-w-xl flex flex-col max-h-[80vh] overflow-hidden shadow-2xl relative"
+              style={{
+                boxShadow: `0 25px 60px -15px ${activeColor}30, inset 0 1px 1px rgba(255,255,255,0.05)`
+              }}
+            >
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between bg-gradient-to-b from-white/[0.02] to-transparent">
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="w-10 h-10 rounded-full bg-cover bg-center border-2 animate-pulse-soft"
+                    style={{ 
+                      backgroundImage: `url(${idol.image})`,
+                      borderColor: activeColor
+                    }}
+                  />
+                  <div>
+                    <h3 className="font-bold text-sm tracking-wide text-white flex items-center gap-1.5 leading-none">
+                      {idol.name} 
+                      <span className="text-[7.5px] uppercase font-black px-1.5 py-0.5 rounded bg-luxury-gold/10 text-luxury-gold border border-luxury-gold/25 leading-none">Bubble Feed</span>
+                    </h3>
+                    <p className="text-[9px] font-mono text-white/40 tracking-wider uppercase mt-1 leading-none">{idol.personalityTag}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {/* Status update indicator */}
+                  <div className="hidden xs:flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-full border border-white/5">
+                    <Cloud size={10} className="text-luxury-gold" />
+                    <span className="text-[8px] font-mono uppercase tracking-widest text-white/55">
+                      {user ? "Cloud Synced" : "Offline Cache"}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => { setShowStatusUpdates(false); playReceivedSound(); }}
+                    className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center border border-white/5 hover:border-white/15 cursor-pointer text-white/40 hover:text-white/90 transition-all active:scale-95"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Feed Body */}
+              <div className="flex-1 overflow-y-auto p-5 md:p-6 space-y-5 custom-scrollbar">
+                {loadingUpdates ? (
+                  <div className="py-20 text-center flex flex-col items-center justify-center">
+                    <div className="w-8 h-8 rounded-full border-t-2 border-r-2 animate-spin mb-4" style={{ borderColor: activeColor }} />
+                    <p className="text-[10px] font-mono text-white/40 tracking-widest uppercase animate-pulse">Establishing secure channel...</p>
+                  </div>
+                ) : updates.length === 0 ? (
+                  <div className="py-16 text-center text-white/30 space-y-2">
+                    <Sparkles size={24} className="mx-auto opacity-20 mb-1" style={{ color: activeColor }} />
+                    <p className="text-xs font-semibold uppercase tracking-wider">Feed is currently silent</p>
+                    <p className="text-[10px] max-w-xs mx-auto leading-relaxed">Let's wait for {idol.name} to release her next sweet status update!</p>
+                  </div>
+                ) : (
+                  updates.map((item) => {
+                    const liked = likedUpdates[item.id];
+                    const dateStr = new Date(item.timestamp).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    });
+
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-4 rounded-3xl bg-white/[0.03] border border-white/5 flex flex-col gap-3 hover:bg-white/[0.05] transition-all duration-300"
+                        style={{
+                          boxShadow: `inset 0 1px 1px rgba(255,255,255,0.02)`
+                        }}
+                      >
+                        {/* Meta */}
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-1.5 text-white/50">
+                            <Calendar size={11} className="text-rose-400" style={{ color: activeColor }} />
+                            <span className="text-[9px] font-mono text-white/40 uppercase tracking-wider leading-none">{dateStr}</span>
+                          </div>
+                          
+                          <span className="text-[7.5px] font-mono text-luxury-gold uppercase px-1.5 py-0.5 rounded bg-luxury-gold/5 border border-luxury-gold/15">Authorized Bubble Original</span>
+                        </div>
+
+                        {/* Text */}
+                        <p className="text-xs md:text-[13px] leading-relaxed text-white/85 select-text whitespace-pre-line font-medium">
+                          {item.text}
+                        </p>
+
+                        {/* Attachment Image if present */}
+                        {item.imageUrl && (
+                          <div className="relative rounded-2xl overflow-hidden border border-white/5 max-h-48 group cursor-zoom-in">
+                            <img
+                              src={item.imageUrl}
+                              alt="Feed image attachment"
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent pointer-events-none" />
+                          </div>
+                        )}
+
+                        {/* Interactive reaction buttons */}
+                        <div className="flex items-center justify-between border-t border-white/5 pt-2.5 mt-1">
+                          <button
+                            onClick={() => handleLikeUpdate(item.id)}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all cursor-pointer hover:scale-105 active:scale-95 ${
+                              liked 
+                                ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 font-extrabold shadow-sm shadow-rose-500/10' 
+                                : 'bg-white/5 border-white/5 text-white/40 hover:text-white/80 hover:bg-white/10 hover:border-white/10'
+                            }`}
+                          >
+                            <Heart size={12.5} className={`transition-transform duration-300 ${liked ? 'fill-rose-500 text-rose-400 animate-pulse-soft scale-110' : 'text-white/50'}`} />
+                            <span className="text-[10px] font-mono leading-none tracking-tight">{item.likes}</span>
+                          </button>
+
+                          <span className="text-[8px] font-mono tracking-wider text-white/20 select-none uppercase">Official Fan Exclusive</span>
+                        </div>
+                      </motion.div>
+                    );
+                  })
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

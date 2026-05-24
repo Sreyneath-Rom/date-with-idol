@@ -166,3 +166,141 @@ export const GROUP_CHATS: GroupChat[] = [
     difficulty: 8
   }
 ];
+
+export const DEFAULT_STATUS_UPDATES: Record<string, { id: string; text: string; timestamp: number; imageUrl?: string; likes: number }[]> = {
+  nayeon: [
+    {
+      id: 'ny_up_1',
+      text: 'Just finished "POP!" solo dance practice with our choreography team! Drinking a cold iced caramel macchiato now. What are you up to today? 🐰✨',
+      timestamp: Date.now() - 3600000 * 2, // 2 hours ago
+      imageUrl: 'https://images.unsplash.com/photo-1545128485-c400e7702796?q=80&w=600&auto=format&fit=crop',
+      likes: 489
+    },
+    {
+      id: 'ny_up_2',
+      text: 'Strawberry jello is literally the best dessert in the entire universe. Confirmed! 🍓🍬 Anyone wants to bite?',
+      timestamp: Date.now() - 3600000 * 24, // 1 day ago
+      likes: 812
+    }
+  ],
+  jeongyeon: [
+    {
+      id: 'jy_up_1',
+      text: 'Finished building the massive Hogwarts LEGO castle set! It took me 12 hours but looking at it makes my heart so warm. LEGO tournament next time? 🏰💚',
+      timestamp: Date.now() - 3600000 * 4,
+      imageUrl: 'https://images.unsplash.com/photo-1587573089734-09cb69c0f2b4?q=80&w=600&auto=format&fit=crop',
+      likes: 295
+    },
+    {
+      id: 'jy_up_2',
+      text: 'The weather in Seoul is super crisp today. Please remember to dress warmly and don\'t ever skip lunch, okay?',
+      timestamp: Date.now() - 3600000 * 18,
+      likes: 310
+    }
+  ],
+  momo: [
+    {
+      id: 'mo_up_1',
+      text: 'Momo\'s battery is finally 100% recharged! Ordered a giant platter of Jokbal and dipping it in spicy garlic sauce. 🥟🍖 Delish!',
+      timestamp: Date.now() - 3600000 * 1.5,
+      imageUrl: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=600&auto=format&fit=crop',
+      likes: 541
+    },
+    {
+      id: 'mo_up_2',
+      text: 'Practiced a brand new dance hook today! My body is so sore but thinking of our chat gives me energy. Have a cute dinner~ 💖',
+      timestamp: Date.now() - 3600000 * 12,
+      likes: 712
+    }
+  ],
+  sana: [
+    {
+      id: 'sa_up_1',
+      text: 'Shy Shy Shy... I picked up a new luxury flower perfume today and it smells like a romantic spring meadow! Tell me you love me or I\'ll pout all day! 🌸🥰',
+      timestamp: Date.now() - 3600000 * 3,
+      imageUrl: 'https://images.unsplash.com/photo-1541643600914-78b084683601?q=80&w=600&auto=format&fit=crop',
+      likes: 671
+    },
+    {
+      id: 'sa_up_2',
+      text: 'No Sana, No Life! 🌟 Had a hilarious chat with Nayeon unnie earlier. Now, what should I message you next? Hehe.',
+      timestamp: Date.now() - 3600000 * 20,
+      likes: 890
+    }
+  ],
+  jihyo: [
+    {
+      id: 'ji_up_1',
+      text: 'Surfed under the golden sunset at the East Sea today! The waves were massive and packed with pure high energy! Let\'s go together! 🏄‍♀️🌅',
+      timestamp: Date.now() - 3600000 * 5,
+      imageUrl: 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?q=80&w=600&auto=format&fit=crop',
+      likes: 350
+    },
+    {
+      id: 'ji_up_2',
+      text: 'Spent 2 hours in pilates. Keeping fit and active is so rejuvenating. Sending you some positive vitamin energy to get through your day! 💪✨',
+      timestamp: Date.now() - 3600000 * 15,
+      likes: 420
+    }
+  ],
+  mina: [
+    {
+      id: 'mi_up_1',
+      text: 'Quiet gaming night. Just finished constructing a cozy library in our Minecraft survival world. Do you want to join and read with me tomorrow? 🐧🎮',
+      timestamp: Date.now() - 3600000 * 6,
+      imageUrl: 'https://images.unsplash.com/photo-1605901309584-818e25960a8f?q=80&w=600&auto=format&fit=crop',
+      likes: 390
+    },
+    {
+      id: 'mi_up_2',
+      text: 'Rainy evenings are so peaceful. Doing some knitting while playing soft acoustic ballads in the background. Hope you feel warm and safe. 🖤',
+      timestamp: Date.now() - 3600000 * 22,
+      likes: 412
+    }
+  ],
+  dahyun: [
+    {
+      id: 'da_up_1',
+      text: 'Spotting games! Found a hidden camera behind the studio flowers in 3 seconds! 🔍😎 Also played a sweet custom piano song for you. Get ready for tofu energy!',
+      timestamp: Date.now() - 3600000 * 4.5,
+      imageUrl: 'https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?q=80&w=600&auto=format&fit=crop',
+      likes: 450
+    },
+    {
+      id: 'da_up_2',
+      text: 'Munching on chocolate bread. Chocolate + Bread = Pure undisputed bliss. 🍫🍞 What is your favorite snack?',
+      timestamp: Date.now() - 3600000 * 16,
+      likes: 512
+    }
+  ],
+  chaeyoung: [
+    {
+      id: 'ch_up_1',
+      text: 'Doodling in my personal sketchbook at a cozy little indie cafe. The aroma of roasted coffee makes drawing so relaxing. Hope you have a colorful day! 🍓📖🎨',
+      timestamp: Date.now() - 3600000 * 5,
+      imageUrl: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?q=80&w=600&auto=format&fit=crop',
+      likes: 280
+    },
+    {
+      id: 'ch_up_2',
+      text: 'Listening to an old vinyl of sweet instrumental jazz. The faint record static sounds exactly like falling rain on summer leaves. 🌧️',
+      timestamp: Date.now() - 3600000 * 24,
+      likes: 310
+    }
+  ],
+  tzuyu: [
+    {
+      id: 'tz_up_1',
+      text: 'Spent a beautiful, calm evening walking critical puppy shelter rescues in the park. Riverside air feels so clean. Let\'s walk together under the moonlight. 🐶🌕',
+      timestamp: Date.now() - 3600000 * 7,
+      imageUrl: 'https://images.unsplash.com/photo-1544568100-847a948585b9?q=80&w=600&auto=format&fit=crop',
+      likes: 340
+    },
+    {
+      id: 'tz_up_2',
+      text: 'Sometimes it takes courage to be completely honest, but having you listen to me makes me feel so validated. Thank you for always being my safe space.',
+      timestamp: Date.now() - 3600000 * 26,
+      likes: 480
+    }
+  ]
+};

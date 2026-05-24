@@ -35,7 +35,6 @@
         "sender": {
           "type": "string",
           "enum": [
-            "idol",
             "player"
           ]
         },
@@ -73,6 +72,33 @@
         "timestamp",
         "type"
       ]
+    },
+    "status_update": {
+      "title": "Status Update",
+      "description": "A historical status update or story posted by an idol",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "integer"
+        },
+        "imageUrl": {
+          "type": "string"
+        },
+        "likes": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "timestamp"
+      ]
     }
   },
   "firestore": {
@@ -83,6 +109,10 @@
     "/users/{userId}/chats/{idolId}/messages/{messageId}": {
       "schema": "chat_message",
       "description": "Message log in the chat room with a specific idol"
+    },
+    "/idols/{idolId}/status_updates/{updateId}": {
+      "schema": "status_update",
+      "description": "A list of past status updates or thoughts from an idol"
     }
   }
 }

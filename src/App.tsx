@@ -70,7 +70,8 @@ export default function App() {
             <HomeHub 
               idol={selectedIdol} 
               onNavigate={setView} 
-              affection={profile.affection}
+              profile={profile}
+              onUpdateProfile={updateFirestoreProfile}
             />
           </motion.div>
         )}

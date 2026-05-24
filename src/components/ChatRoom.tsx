@@ -126,6 +126,9 @@ export default function ChatRoom({ idol, onBack }: Props) {
   const [isDragging, setIsDragging] = useState(false);
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [infiniteChat, setInfiniteChat] = useState<boolean>(() => {
+    return localStorage.getItem('bubble_infinite_chat_mode') !== 'false';
+  });
   const [targetLang, setTargetLang] = useState<string>(() => {
     return localStorage.getItem('bubble_target_lang') || 'Khmer';
   });
@@ -728,8 +731,9 @@ export default function ChatRoom({ idol, onBack }: Props) {
   }, [isTyping]);
 
   const getChatHistoryForAPI = (chatMessages: ChatMessage[]) => {
-    // Keep last 25 turns for long but highly scalable conversational memory context
-    return chatMessages.slice(-25).map(m => {
+    // Keep last 100 turns if infiniteChat mode is active, else 25 turns for optimized memory context
+    const historyLimit = infiniteChat ? -100 : -25;
+    return chatMessages.slice(historyLimit).map(m => {
       let contentText = m.text;
       if (m.type === 'image') {
         contentText = m.text ? `[Sent image attachment: "${m.text}"]` : '[Sent image attachment]';
@@ -901,6 +905,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
 
       const data = await response.json();
       
+      const selfieDelay = infiniteChat ? 150 : 1500;
       setTimeout(async () => {
         setIsTyping(false);
         playReceivedSound();
@@ -931,7 +936,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
           type: 'image',
           imageUrl
         });
-      }, 1500);
+      }, selfieDelay);
       
     } catch (error) {
       console.error(error);
@@ -1080,6 +1085,8 @@ export default function ChatRoom({ idol, onBack }: Props) {
 
           const data = await response.json();
           
+          const voiceDelay = infiniteChat ? 150 : 1500;
+          const stepOffset = infiniteChat ? 100 : 800;
           setTimeout(async () => {
             setIsTyping(false);
             playReceivedSound();
@@ -1097,7 +1104,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
                     timestamp: Date.now(),
                     type: 'text'
                   });
-                }, index * 800);
+                }, index * stepOffset);
               });
             } else {
               await writeMessage({
@@ -1110,7 +1117,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
                 type: 'text'
               });
             }
-          }, 1500);
+          }, voiceDelay);
           
         } catch (error) {
           console.error("AI chat API failed on voice response:", error);
@@ -1277,7 +1284,9 @@ export default function ChatRoom({ idol, onBack }: Props) {
 
       const data = await response.json();
       
-      // Artificial delay for "realism"
+      // Artificial delay for "realism" (minimized in endless chat mode)
+      const chatDelay = infiniteChat ? 150 : 1500;
+      const stepOffset = infiniteChat ? 100 : 800;
       setTimeout(async () => {
         setIsTyping(false);
         playReceivedSound();
@@ -1295,7 +1304,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
                 timestamp: Date.now(),
                 type: 'text'
               });
-            }, index * 800); // Small delay between typing offsets
+            }, index * stepOffset); // Fast or standard typing offset between group members
           });
         } else {
           await writeMessage({
@@ -1308,7 +1317,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
             type: 'text'
           });
         }
-      }, 1500);
+      }, chatDelay);
       
     } catch (error) {
       console.error(error);
@@ -1601,6 +1610,11 @@ export default function ChatRoom({ idol, onBack }: Props) {
                     <span className={`text-[8px] md:text-[10px] uppercase tracking-widest font-black leading-none transition-colors duration-500 ${isTyping ? 'text-rose-400' : isAway ? 'text-amber-500' : 'text-green-500'}`}>
                       {currentGroup ? (isTyping ? 'Members Typing...' : `${currentGroup.members.length} Members Active`) : isTyping ? 'Typing...' : isAway ? 'Away' : 'Online'}
                     </span>
+                    {infiniteChat && (
+                      <span className="text-[7.5px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-400 via-luxury-magenta to-luxury-gold bg-clip-text text-transparent border border-white/10 px-1.5 py-0.5 rounded bg-white/[0.02]">
+                        ⚡ No Limit Mode
+                      </span>
+                    )}
                     {!currentGroup && currentIdol.instagram && (
                       <a href={`https://instagram.com/${currentIdol.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="ml-1 text-[8px] md:text-[9px] uppercase tracking-widest font-mono text-white/40 hover:text-luxury-magenta transition-colors">
                         ({currentIdol.instagram})
@@ -1669,6 +1683,26 @@ export default function ChatRoom({ idol, onBack }: Props) {
                       >
                         <span className="text-sm select-none">🇰🇭</span>
                         Translate All to Khmer ({messages.filter(m => m.sender === 'idol' && !m.translatedText).length})
+                      </button>
+                      
+                      <div className="h-[1px] bg-white/5 my-1" />
+                      <button
+                        onClick={() => {
+                          const newVal = !infiniteChat;
+                          setInfiniteChat(newVal);
+                          localStorage.setItem('bubble_infinite_chat_mode', String(newVal));
+                          triggerHaptic(10);
+                          setShowMenu(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-white/5 text-xs text-white/80 hover:text-white flex items-center justify-between transition-colors font-medium hover:text-luxury-gold"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Check size={14} className={infiniteChat ? "text-amber-400" : "text-white/40"} />
+                          Endless Portal Mode
+                        </span>
+                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-black tracking-wider uppercase ${infiniteChat ? 'bg-amber-400/20 text-amber-300 border border-amber-400/35' : 'bg-white/10 text-white/50 border border-white/5'}`}>
+                          {infiniteChat ? 'ACTIVE' : 'OFF'}
+                        </span>
                       </button>
                       
                       <div className="h-[1px] bg-white/5 my-1" />

@@ -31,7 +31,10 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile>({
     name: 'Player',
     selectedIdolId: null,
-    affection: 12
+    affection: 12,
+    trust: 15,
+    chemistry: 10,
+    comfort: 12
   });
 
   // Handle Authentication State
@@ -64,7 +67,10 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         const initialProfile: UserProfile = {
           name: user.displayName || 'Player',
           selectedIdolId: null,
-          affection: 12
+          affection: 12,
+          trust: 15,
+          chemistry: 10,
+          comfort: 12
         };
         // Run safe write with error context matching our Firebase specification
         setDoc(userDocRef, initialProfile)
@@ -96,7 +102,10 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       setProfile({
         name: 'Player',
         selectedIdolId: null,
-        affection: 12
+        affection: 12,
+        trust: 15,
+        chemistry: 10,
+        comfort: 12
       });
     } catch (error) {
       console.error("Sign out failed:", error);

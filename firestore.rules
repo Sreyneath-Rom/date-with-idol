@@ -31,7 +31,10 @@ service cloud.firestore {
     function isValidUser(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 100
         && (data.selectedIdolId == null || (data.selectedIdolId is string && data.selectedIdolId.size() <= 128))
-        && data.affection is int && data.affection >= 0 && data.affection <= 100;
+        && data.affection is int && data.affection >= 0 && data.affection <= 100
+        && (!('trust' in data) || (data.trust is int && data.trust >= 0 && data.trust <= 100))
+        && (!('chemistry' in data) || (data.chemistry is int && data.chemistry >= 0 && data.chemistry <= 100))
+        && (!('comfort' in data) || (data.comfort is int && data.comfort >= 0 && data.comfort <= 100));
     }
 
     // Chat Message validation helper
@@ -47,6 +50,15 @@ service cloud.firestore {
         && (!('reaction' in data) || (data.reaction is string && data.reaction.size() <= 16));
     }
 
+    // Status Update validation helper
+    function isValidStatusUpdate(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128
+        && data.text is string && data.text.size() > 0 && data.text.size() <= 5000
+        && data.timestamp is int
+        && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 2048))
+        && (!('likes' in data) || (data.likes is int && data.likes >= 0));
+    }
+
     // Match patterns for user documents
     match /users/{userId} {
       allow get: if isOwner(userId);
@@ -54,11 +66,12 @@ service cloud.firestore {
                     && isValidId(userId)
                     && isValidUser(incoming())
                     && incoming().keys().hasAll(['name', 'selectedIdolId', 'affection'])
-                    && incoming().keys().size() == 3;
+                    && incoming().keys().size() >= 3
+                    && incoming().keys().size() <= 6;
                     
       allow update: if isOwner(userId)
                     && isValidUser(incoming())
-                    && (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'selectedIdolId', 'affection']));
+                    && (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'selectedIdolId', 'affection', 'trust', 'chemistry', 'comfort']));
                     
       allow delete: if isOwner(userId);
 
@@ -81,6 +94,27 @@ service cloud.firestore {
                       
         allow delete: if isOwner(userId);
       }
+    }
+
+    match /idols/{idolId}/status_updates/{updateId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      
+      allow create: if isSignedIn()
+                    && isValidId(idolId)
+                    && isValidId(updateId)
+                    && isValidStatusUpdate(incoming())
+                    && incoming().keys().hasAll(['id', 'text', 'timestamp'])
+                    && incoming().keys().size() >= 3
+                    && incoming().keys().size() <= 6;
+                    
+      allow update: if isSignedIn()
+                    && isValidId(idolId)
+                    && isValidId(updateId)
+                    && isValidStatusUpdate(incoming())
+                    && (incoming().diff(existing()).affectedKeys().hasOnly(['likes']));
+                    
+      allow delete: if isSignedIn();
     }
   }
 }

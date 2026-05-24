@@ -12,8 +12,6 @@ export interface Idol {
   instagram?: string;
 }
 
-export type AppView = 'intro' | 'selection' | 'hub' | 'chat' | 'memories';
-
 export interface ChatMessage {
   id: string;
   sender: 'idol' | 'player';
@@ -50,4 +48,49 @@ export interface UserProfile {
   name: string;
   selectedIdolId: string | null;
   affection: number;
+  trust: number;
+  chemistry: number;
+  comfort: number;
 }
+
+export interface StatusUpdate {
+  id: string;
+  text: string;
+  timestamp: number;
+  imageUrl?: string;
+  likes: number;
+}
+
+export interface DynamicEvent {
+  id: string;
+  type: 'message' | 'call' | 'selfie' | 'date';
+  title: string;
+  description: string;
+  expiresAt: number;
+}
+
+export interface DialogueChoice {
+  id: string;
+  text: string;
+  affection: number;
+  trust: number;
+  chemistry: number;
+  nextNode: string;
+}
+
+export interface DialogueNode {
+  id: string;
+  text: string;
+  choices: DialogueChoice[];
+}
+
+export interface StoryEpisode {
+  id: string;
+  title: string;
+  description: string;
+  reqAffection: number;
+  unlocked: boolean;
+  thumbnail: string;
+}
+
+export type AppView = 'intro' | 'selection' | 'hub' | 'chat' | 'memories' | 'date' | 'events' | 'story_episodes';
