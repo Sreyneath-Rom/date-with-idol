@@ -131,6 +131,10 @@ export default function ChatRoom({ idol, onBack }: Props) {
   });
   const [showTranslationSettings, setShowTranslationSettings] = useState(false);
   const [showProfileCard, setShowProfileCard] = useState(false);
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState('');
+  const [mentionIndex, setMentionIndex] = useState(-1);
+  const [activeMentionIndex, setActiveMentionIndex] = useState(0);
   const [selectedWallpaperId, setSelectedWallpaperId] = useState<string>(() => {
     const activeChatId = currentGroup ? currentGroup.id : currentIdol.id;
     return localStorage.getItem(`bubble_wallpaper_${activeChatId}`) || 'midnight';
@@ -1120,6 +1124,87 @@ export default function ChatRoom({ idol, onBack }: Props) {
     }
   };
 
+  const getMentionableIdols = (): Idol[] => {
+    if (currentGroup) {
+      return IDOLS.filter(i => currentGroup.members.includes(i.id));
+    }
+    return [currentIdol];
+  };
+
+  const filteredMentionIdols = getMentionableIdols().filter(idol => 
+    idol.name.toLowerCase().includes(mentionFilter.toLowerCase()) ||
+    (idol.instagram && idol.instagram.toLowerCase().includes(mentionFilter.toLowerCase()))
+  );
+
+  const selectIdolMention = (idolName: string) => {
+    triggerHaptic(12);
+    if (mentionIndex !== -1) {
+      const beforeMention = input.slice(0, mentionIndex);
+      const afterMention = input.slice(mentionIndex + mentionFilter.length + 1);
+      const suffix = afterMention.startsWith(' ') ? afterMention : ' ' + afterMention;
+      setInput(beforeMention + '@' + idolName + suffix);
+    } else {
+      setInput(prev => prev + '@' + idolName + ' ');
+    }
+    setShowMentionDropdown(false);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInput(val);
+    
+    const lastAtPos = val.lastIndexOf('@');
+    if (lastAtPos !== -1 && (lastAtPos === 0 || val[lastAtPos - 1] === ' ')) {
+      const query = val.slice(lastAtPos + 1);
+      if (!query.includes(' ')) {
+        setMentionFilter(query);
+        setMentionIndex(lastAtPos);
+        setShowMentionDropdown(true);
+        setActiveMentionIndex(0);
+        return;
+      }
+    }
+    setShowMentionDropdown(false);
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (showMentionDropdown && filteredMentionIdols.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveMentionIndex(prev => (prev + 1) % filteredMentionIdols.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveMentionIndex(prev => (prev - 1 + filteredMentionIdols.length) % filteredMentionIdols.length);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        selectIdolMention(filteredMentionIdols[activeMentionIndex].name);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowMentionDropdown(false);
+      }
+    } else if (e.key === 'Enter') {
+      handleSend();
+    }
+  };
+
+  const renderTextWithMentions = (text: string) => {
+    if (!text) return '';
+    const parts = text.split(/(@[a-zA-Z0-9_\u1780-\u17FF]+)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('@')) {
+        return (
+          <span 
+            key={index} 
+            className="px-1.5 py-0.5 mx-0.5 rounded bg-luxury-gold/20 text-luxury-gold border border-luxury-gold/30 inline-block font-extrabold select-none shadow-sm animate-pulse-soft"
+          >
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
   const handleSend = async () => {
     if (!input.trim() && !pendingImage) return;
     triggerHaptic(15);
@@ -1152,6 +1237,13 @@ export default function ChatRoom({ idol, onBack }: Props) {
     setIsTyping(true);
 
     try {
+      const mentionRegex = /@([a-zA-Z0-9_\u1780-\u17FF]+)/g;
+      const parsedMentions: string[] = [];
+      let match;
+      while ((match = mentionRegex.exec(sentInput)) !== null) {
+        parsedMentions.push(match[1]);
+      }
+
       const payload: any = {
         message: sentInput,
         image: sentImage ? { data: sentImage.data, mimeType: sentImage.mimeType } : undefined,
@@ -1160,7 +1252,8 @@ export default function ChatRoom({ idol, onBack }: Props) {
           id: activeReply.id,
           senderName: activeReply.senderName || 'Star',
           text: activeReply.text
-        } : undefined
+        } : undefined,
+        mentions: parsedMentions.length > 0 ? parsedMentions : undefined
       };
 
       if (currentGroup) {
@@ -2020,18 +2113,15 @@ export default function ChatRoom({ idol, onBack }: Props) {
                         <div className="space-y-1.5">
                           <p className="text-xs md:text-sm leading-relaxed overflow-hidden">
                             {msg.sender === 'idol' && idx === messages.length - 1 && msg.text && !msg.translatedText ? (
-                              msg.text.split('').map((char, i) => (
-                                <motion.span
-                                  key={i}
-                                  initial={{ opacity: 0 }}
-                                  animate={{ opacity: 1 }}
-                                  transition={{ duration: 0.05, delay: i * 0.02 }}
-                                >
-                                  {char}
-                                </motion.span>
-                              ))
+                              <motion.span
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ duration: 0.4 }}
+                              >
+                                {renderTextWithMentions(msg.text)}
+                              </motion.span>
                             ) : (
-                              msg.text || ''
+                              renderTextWithMentions(msg.text || '')
                             )}
                           </p>
                           {msg.translatedText && (
@@ -2250,6 +2340,59 @@ export default function ChatRoom({ idol, onBack }: Props) {
 
           {/* Typing Footer */}
           <footer className="glass-gold px-4 md:px-6 pt-3 md:pt-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] md:pb-6 rounded-t-[2rem] md:rounded-t-[2.5rem] mt-auto shrink-0 z-10">
+            {/* Mention Dropdown Popover */}
+            <AnimatePresence>
+              {showMentionDropdown && filteredMentionIdols.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 15, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 15, scale: 0.98 }}
+                  className="mb-3 p-1.5 rounded-2xl bg-luxury-black/95 backdrop-blur-xl border border-luxury-gold/20 flex flex-col gap-1 max-h-48 overflow-y-auto shadow-[0_4px_30px_rgba(212,175,55,0.15)] z-20"
+                >
+                  <div className="px-2.5 py-1 border-b border-white/5 flex items-center justify-between">
+                    <span className="text-[8px] uppercase tracking-widest font-black text-luxury-gold flex items-center gap-1.5">
+                      <Sparkles size={8} className="animate-spin-slow" />
+                      Mention Group Member
+                    </span>
+                    <span className="text-[7px] font-mono text-white/35">Press ↑↓ to select, ↵ to insert</span>
+                  </div>
+                  {filteredMentionIdols.map((member, idx) => {
+                    const isSelected = idx === activeMentionIndex;
+                    return (
+                      <div
+                        key={member.id}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          selectIdolMention(member.name);
+                        }}
+                        onMouseEnter={() => setActiveMentionIndex(idx)}
+                        className={`px-2.5 py-2 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                          isSelected 
+                            ? 'bg-gradient-to-r from-luxury-magenta/20 to-luxury-gold/10 border-l-4 border-luxury-gold pl-2 text-white' 
+                            : 'hover:bg-white/5 text-white/70 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div 
+                            className="w-7 h-7 rounded-full bg-cover bg-center border border-white/10"
+                            style={{ backgroundImage: `url(${member.image})` }}
+                          />
+                          <div className="text-left">
+                            <p className="font-bold text-xs leading-none flex items-center gap-1">
+                              <span>{member.name}</span>
+                              <span className="text-[7.5px] uppercase tracking-wider font-extrabold px-1 py-0.5 rounded bg-luxury-magenta/15 border border-luxury-magenta/30 text-rose-300 leading-none">@{member.name}</span>
+                            </p>
+                            <p className="text-[9px] text-white/40 mt-0.5 leading-none truncate max-w-[170px]">{member.role}</p>
+                          </div>
+                        </div>
+                        <span className="text-[9px] font-mono text-luxury-gold/70 group-hover:text-luxury-gold">{member.personalityTag}</span>
+                      </div>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {replyingToMessage && (
               <motion.div 
                 initial={{ opacity: 0, height: 0 }}
@@ -2367,8 +2510,8 @@ export default function ChatRoom({ idol, onBack }: Props) {
                     placeholder={pendingImage ? "Type note for your picture (optional)..." : `Write to ${currentIdol.name}...`}
                     className="flex-1 py-3 md:py-4 bg-transparent border-none outline-none text-xs md:text-sm font-medium placeholder:text-white/20"
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                    onChange={handleInputChange}
+                    onKeyDown={handleInputKeyDown}
                   />
                   <button 
                     onClick={() => { triggerHaptic(18); startRecording(); }}

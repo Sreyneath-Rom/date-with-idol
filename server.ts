@@ -177,7 +177,7 @@ async function startServer() {
     return responses[randomIndex];
   }
 
-  function generateGroupFallbackResponses({ message, groupMembers, replyTo }: any) {
+  function generateGroupFallbackResponses({ message, groupMembers, replyTo, mentions }: any) {
     const members = groupMembers && groupMembers.length > 0 ? groupMembers : [
       { id: "nayeon", name: "Nayeon" },
       { id: "sana", name: "Sana" },
@@ -185,6 +185,45 @@ async function startServer() {
       { id: "jihyo", name: "Jihyo" },
       { id: "mina", name: "Mina" }
     ];
+
+    if (Array.isArray(mentions) && mentions.length > 0) {
+      const mentionedMembers = members.filter((m: any) => 
+        mentions.some((mentionName: string) => m.name.toLowerCase() === mentionName.toLowerCase() || m.id.toLowerCase() === mentionName.toLowerCase())
+      );
+      
+      if (mentionedMembers.length > 0) {
+        const sequence = mentionedMembers.map((member: any) => {
+          let text = `Oh! Did you just mention me, @${member.name}? 💖 My heart skipped a beat! I was just thinking about you!`;
+          if (member.id === 'momo') {
+            text = `Aww, you called for Momo! 🥟 I was about to grab some snacks, but talking to you is even better! What are you doing?`;
+          } else if (member.id === 'sana') {
+            text = `Sana is here! 🥰 Did you miss me? No Sana, No Life! Tell me you love me right now!`;
+          } else if (member.id === 'nayeon') {
+            text = `Bunny center Nayeon reports! 🐰 You mentioned me, right? Hehe, I always look at our chat notifications first!`;
+          } else if (member.id === 'mina') {
+            text = `Penguin Mina here... 🐧 Thank you for mentioning me. Hearing from you makes my day so much brighter.`;
+          } else if (member.id === 'tzuyu') {
+            text = `Hehe, Tzuyu is checking in! 🐶 You called? I am always happy when you specifically look for me!`;
+          }
+          return {
+            senderId: member.id,
+            senderName: member.name,
+            text
+          };
+        });
+        
+        const otherMember = members.find((m: any) => !mentionedMembers.some((men: any) => men.id === m.id));
+        if (otherMember) {
+          sequence.push({
+            senderId: otherMember.id,
+            senderName: otherMember.name,
+            text: `Aha! ${mentionedMembers.map((m: any) => m.name).join(' and ')} look so excited because you mentioned them! Don't forget about me next time! 😂`
+          });
+        }
+        
+        return { responses: sequence };
+      }
+    }
 
     const threadCount = Math.min(3, members.length);
     const shuffled = [...members].sort(() => 0.5 - Math.random());
@@ -778,7 +817,7 @@ Return ONLY the JSON array, surrounded by [ and ] and nothing else. No markdown 
   });
 
   app.post("/api/chat", async (req, res) => {
-    const { message, history, idolName, personality, image, isGroupChat, groupName, groupMembers, replyTo } = req.body;
+    const { message, history, idolName, personality, image, isGroupChat, groupName, groupMembers, replyTo, mentions } = req.body;
     
     try {
       let systemPrompt = "";
@@ -795,6 +834,8 @@ Keep responses short (1-2 sentences per message), intimate, extremely direct, fu
 The members can talk with each other OR directly to the fan.
 Maintain each member's character and distinct traits perfectly. Avoid generic corporate or formal responses.
 
+If the user's message explicitly mentions one or more members using @MemberName (e.g. "@Nayeon", "@Momo", "@Mina"), the mentioned member(s) MUST receive priority and respond directly. They should address the user's mention, answer any questions, feel touched or teased, and react specifically to being called out!
+
 You MUST respond in a strict JSON format matching this schema:
 {
   "responses": [
@@ -805,6 +846,11 @@ You MUST respond in a strict JSON format matching this schema:
     }
   ]
 }`;
+
+        if (Array.isArray(mentions) && mentions.length > 0) {
+          systemPrompt += `\n\nCRITICAL CONTEXT: The user has directly mentioned: ${mentions.map((m: string) => `@${m}`).join(", ")}.
+You MUST generate responses from the mentioned member(s) to acknowledge and answer of being directly tagged/pinged. Let them react in character!`;
+        }
       } else {
         systemPrompt = `You are ${idolName}, a K-pop idol with a ${personality} personality. 
 Talk to your fan in an emotionally intimate, cinematic, and addictive K-pop idol bubble style. 
@@ -913,7 +959,7 @@ You MUST write your response to directly address, build upon, or react to that s
       
       // Serve immersive offline/rate-limit response in-character instead of crashing the client with a 500 error!
       if (isGroupChat) {
-        const localGroupReponse = generateGroupFallbackResponses({ message, groupMembers, replyTo });
+        const localGroupReponse = generateGroupFallbackResponses({ message, groupMembers, replyTo, mentions });
         res.json(localGroupReponse);
       } else {
         const localIdolResponse = generateFallbackResponse({ message, idolName, personality, replyTo });
