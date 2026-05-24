@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, Image as ImageIcon, Mic, ChevronLeft, MoreVertical, Heart, Sparkles, Phone, PhoneOff, MicOff, Volume2, Search, Calendar, Award, Smile, Check } from 'lucide-react';
+import { Send, Image as ImageIcon, Mic, ChevronLeft, MoreVertical, Heart, Sparkles, Phone, PhoneOff, MicOff, Volume2, Search, Calendar, Award, Smile, Check, Globe, Languages, Settings } from 'lucide-react';
 import { Idol, ChatMessage, GroupChat } from '../types';
 import { IDOLS, GROUP_CHATS } from '../constants';
 import { playSentSound, playReceivedSound, startRingtoneLoop, stopRingtoneLoop, playCallEndSound, speakText } from '../utils/audio';
@@ -76,6 +76,17 @@ const SUPPORTED_LANGS: TranslationLang[] = [
   { code: 'Vietnamese', name: 'Vietnamese', flag: '🇻🇳', localLabel: 'Dịch' },
 ];
 
+const FALLBACK_TRANSLATIONS: Record<string, string> = {
+  Khmer: 'បកប្រែ៖ ខ្ញុំស្រឡាញ់អ្នក និងគាំទ្រអ្នកជានិច្ច! 💖',
+  English: 'Translated: I love you and support you always! 💖',
+  Japanese: '翻訳: いつも愛してるし、応援してるよ! 💖',
+  Korean: '번역: 언제나 사랑하고 지지해요! 💖',
+  Chinese: '翻译: 我永远爱你、支持你！💖',
+  Thai: 'แปล: รักและสนับสนุนคุณเสมอบับเบิ้ล! 💖',
+  Spanish: 'Traducido: ¡Siempre te amo y te apoyo! 💖',
+  Vietnamese: 'Bản dịch: Mình luôn yêu và ủng hộ bạn! 💖',
+};
+
 const getEstimatedReadTime = (text: string) => {
   if (!text) return '';
   const wordCount = text.trim().split(/\s+/).length;
@@ -133,6 +144,10 @@ export default function ChatRoom({ idol, onBack }: Props) {
     return localStorage.getItem('bubble_target_lang') || 'Khmer';
   });
   const [showTranslationSettings, setShowTranslationSettings] = useState(false);
+  const [autoTranslate, setAutoTranslate] = useState<boolean>(() => {
+    return localStorage.getItem('bubble_auto_translate') === 'true';
+  });
+  const actLang = SUPPORTED_LANGS.find(l => l.code === targetLang) || SUPPORTED_LANGS[0];
   const [showProfileCard, setShowProfileCard] = useState(false);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionFilter, setMentionFilter] = useState('');
@@ -581,7 +596,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
     }
   };
 
-  const handleTranslateToKhmer = async (msg: ChatMessage) => {
+  const handleTranslateMessage = async (msg: ChatMessage) => {
     if (msg.translatedText) {
       await updateMessageTranslation(msg.id, '');
       return;
@@ -590,7 +605,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
       const response = await fetch('/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: msg.text })
+        body: JSON.stringify({ text: msg.text, targetLang })
       });
       const data = await response.json();
       if (data.translatedText) {
@@ -619,7 +634,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
       const response = await fetch('/api/translate-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messagesToTranslate })
+        body: JSON.stringify({ messages: messagesToTranslate, targetLang })
       });
 
       if (!response.ok) {
@@ -638,7 +653,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
         // Apply fallback for any missing IDs
         for (const msg of untranslated) {
           if (!translationsMap[msg.id]) {
-            translationsMap[msg.id] = `${msg.text}\n\n(បកប្រែ៖ ខ្ញុំស្រឡាញ់អ្នក និងគាំទ្រអ្នកជានិច្ច! 💖)`;
+            translationsMap[msg.id] = `${msg.text}\n\n(${FALLBACK_TRANSLATIONS[targetLang] || FALLBACK_TRANSLATIONS.Khmer})`;
           }
         }
 
@@ -647,10 +662,10 @@ export default function ChatRoom({ idol, onBack }: Props) {
       }
     } catch (err) {
       console.error("[ChatRoom] Error in batch translation:", err);
-      // Fallback on error to translate everything locally using template Khmer text
+      // Fallback on error to translate everything locally
       const fallbackMap: Record<string, string> = {};
       for (const msg of untranslated) {
-        fallbackMap[msg.id] = `${msg.text}\n\n(បកប្រែ៖ ខ្ញុំស្រឡាញ់អ្នក និងគាំទ្រអ្នកជានិច្ច! 💖)`;
+        fallbackMap[msg.id] = `${msg.text}\n\n(${FALLBACK_TRANSLATIONS[targetLang] || FALLBACK_TRANSLATIONS.Khmer})`;
       }
       await updateMessagesBatchTranslation(fallbackMap);
     } finally {
@@ -663,6 +678,18 @@ export default function ChatRoom({ idol, onBack }: Props) {
       cleanupCall();
     };
   }, []);
+
+  // Auto-translate last incoming message if enabled
+  useEffect(() => {
+    if (!autoTranslate || messages.length === 0) return;
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg && lastMsg.sender === 'idol' && lastMsg.text && !lastMsg.translatedText) {
+      const timer = setTimeout(() => {
+        handleTranslateMessage(lastMsg);
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [messages, autoTranslate, targetLang]);
 
   const handleScroll = () => {
     if (scrollRef.current) {
@@ -1640,6 +1667,39 @@ export default function ChatRoom({ idol, onBack }: Props) {
                 <span className="text-[10px] font-bold text-luxury-magenta">{(currentGroup ? currentGroup.difficulty : currentIdol.difficulty) * 10}%</span>
               </div>
               
+              {/* Intuitive Target Lang Selector Pill in Header */}
+              <button
+                onClick={() => {
+                  triggerHaptic(12);
+                  setShowTranslationSettings(true);
+                }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-luxury-gold/40 bg-luxury-gold/5 text-luxury-gold hover:bg-luxury-gold hover:text-black transition-all duration-300 animate-fade-in outline-none shadow-[0_0_12px_rgba(212,175,55,0.1)] active:scale-95 cursor-pointer h-8"
+                title="Change Target Language"
+              >
+                <span className="text-xs leading-none select-none">{actLang.flag}</span>
+                <span className="text-[10px] font-mono font-bold tracking-wider uppercase">{actLang.code}</span>
+                <Languages size={11} className="opacity-70 text-luxury-gold hover:text-inherit" />
+              </button>
+
+              {/* Intuitive Auto-Translate Real-Time Toggle in Header */}
+              <button
+                onClick={() => {
+                  const updated = !autoTranslate;
+                  setAutoTranslate(updated);
+                  localStorage.setItem('bubble_auto_translate', String(updated));
+                  triggerHaptic(10);
+                }}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border transition-all duration-300 text-[9px] font-mono uppercase tracking-wider font-bold h-8 active:scale-95 cursor-pointer ${
+                  autoTranslate 
+                    ? 'bg-[#F2AE00]/10 border-[#F59E0B]/30 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.15)]' 
+                    : 'bg-white/5 border-white/10 text-white/45 hover:text-white'
+                }`}
+                title={autoTranslate ? "Real-time AI Autotranslation is Active" : "Enable real-time AI Autotranslation"}
+              >
+                <div className={`w-1.5 h-1.5 rounded-full ${autoTranslate ? 'bg-[#F2AE00] animate-pulse' : 'bg-white/30'}`} />
+                <span>AI Auto</span>
+              </button>
+              
               <button 
                 onClick={() => setShowMenu(prev => !prev)}
                 className="p-1.5 md:p-2 text-white/40 hover:text-white transition-colors"
@@ -1675,14 +1735,27 @@ export default function ChatRoom({ idol, onBack }: Props) {
                       
                       <button
                         onClick={() => {
+                          setShowTranslationSettings(true);
+                          setShowMenu(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-white/5 text-xs text-white/80 hover:text-white flex items-center gap-2 transition-colors font-medium hover:text-luxury-gold"
+                      >
+                        <Globe size={14} className="text-luxury-gold" />
+                        Translation Settings
+                      </button>
+
+                      <div className="h-[1px] bg-white/5 my-1" />
+                      
+                      <button
+                        onClick={() => {
                           handleBatchTranslate();
                           setShowMenu(false);
                         }}
                         disabled={isBatchTranslating || messages.filter(m => m.sender === 'idol' && !m.translatedText).length === 0}
                         className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-white/5 disabled:opacity-40 text-xs text-white/80 hover:text-white flex items-center gap-2 transition-colors font-medium hover:text-luxury-gold disabled:pointer-events-none"
                       >
-                        <span className="text-sm select-none">🇰🇭</span>
-                        Translate All to Khmer ({messages.filter(m => m.sender === 'idol' && !m.translatedText).length})
+                        <span className="text-sm select-none">{actLang.flag}</span>
+                        Translate to {actLang.name} ({messages.filter(m => m.sender === 'idol' && !m.translatedText).length})
                       </button>
                       
                       <div className="h-[1px] bg-white/5 my-1" />
@@ -1933,7 +2006,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
                           : msg.sender === 'idol' && msg.type === 'image'
                             ? 'p-2.5 bg-white text-neutral-900 rounded-xl shadow-xl border border-white/50 flex flex-col items-center rotate-1 hover:rotate-0 transition-all duration-300'
                             : msg.sender === 'idol'
-                              ? `glass text-white/90 border-luxury-magenta/10 ${isConsecutive ? 'rounded-tl-2xl' : 'rounded-tl-xs'}`
+                              ? `glass text-white/90 ${msg.translatedText ? 'border-[#F2AE00]/40 shadow-[0_4px_22px_-4px_rgba(242,174,0,0.18)] bg-gradient-to-b from-white/[0.04] to-amber-500/[0.02]' : 'border-luxury-magenta/10'} ${isConsecutive ? 'rounded-tl-2xl' : 'rounded-tl-xs'}`
                               : `bg-gradient-to-tr from-luxury-magenta to-luxury-gold text-white font-medium ${isConsecutive ? 'rounded-tr-2xl' : 'rounded-tr-xs'}`
                       }`}
                     >
@@ -2022,23 +2095,23 @@ export default function ChatRoom({ idol, onBack }: Props) {
                               ↩ Reply
                             </button>
 
-                            {/* Khmer Translation Toggle inside Popover */}
+                            {/* Dynamic Translation Toggle inside Popover */}
                             {msg.text && (
                               <button
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   triggerHaptic(10);
                                   setActiveReactionMessageId(null);
-                                  await handleTranslateToKhmer(msg);
+                                  await handleTranslateMessage(msg);
                                 }}
                                 className={`flex items-center gap-1 font-mono text-[9px] uppercase tracking-wider font-bold rounded-full px-2.5 py-1 border hover:scale-105 active:scale-95 transition-all cursor-pointer ml-1 ${
                                   msg.translatedText 
                                     ? 'bg-luxury-magenta text-white border-luxury-magenta/30 hover:bg-rose-500' 
                                     : 'bg-white/10 text-white border-white/10 hover:bg-luxury-gold hover:text-black'
                                 }`}
-                                title={msg.translatedText ? "Hide Khmer translation" : "Translate to Khmer"}
+                                title={msg.translatedText ? `Hide ${actLang.name} translation` : `Translate to ${actLang.name}`}
                               >
-                                🇰🇭 {msg.translatedText ? "Hide" : "Khmer"}
+                                <span className="text-xs leading-none">{actLang.flag}</span> {msg.translatedText ? "Hide" : actLang.name}
                               </button>
                             )}
                           </motion.div>
@@ -2162,12 +2235,19 @@ export default function ChatRoom({ idol, onBack }: Props) {
                             <motion.div 
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: 'auto' }}
-                              className="border-t border-white/10 pt-1.5 mt-1 text-xs text-luxury-gold flex flex-col gap-0.5"
+                              className="border-t border-white/10 pt-2 mt-2 text-xs flex flex-col gap-1.5 relative border-dashed"
                             >
-                              <div className="text-[7.5px] uppercase tracking-widest font-black text-rose-300 opacity-60 flex items-center gap-1">
-                                <span>🇰🇭 Translated (Khmer)</span>
+                              <div className="flex items-center justify-between pointer-events-none select-none">
+                                <span className="text-[7.5px] uppercase tracking-wider font-extrabold text-[#F2AE00] bg-amber-500/10 border border-[#F2AE00]/20 px-2 py-0.5 rounded-full flex items-center gap-1 animate-pulse-soft">
+                                  <Languages size={9} strokeWidth={2.5} className="text-[#F2AE00]" />
+                                  <span>{actLang.flag} {actLang.name} Translation</span>
+                                </span>
+                                <span className="text-[6.5px] uppercase tracking-widest font-mono font-bold text-white/30 flex items-center gap-1">
+                                  <Sparkles size={8} className="text-[#F2AE00]/80" />
+                                  <span>Gemini AI</span>
+                                </span>
                               </div>
-                              <p className="leading-relaxed font-sans font-medium text-white/95">{msg.translatedText}</p>
+                              <p className="leading-relaxed font-sans font-medium text-white/95 text-[11px] md:text-xs pl-0.5 pr-0.5">{msg.translatedText}</p>
                             </motion.div>
                           )}
                           {msg.audioUrl && (
@@ -2338,8 +2418,8 @@ export default function ChatRoom({ idol, onBack }: Props) {
                 <div className="flex items-center gap-2.5">
                   <span className="text-xl select-none">🌐</span>
                   <div className="pr-1">
-                    <h4 className="text-[10px] md:text-xs font-black text-luxury-gold uppercase tracking-[0.08em]">
-                      Batch-Translate to Khmer 🇰🇭
+                    <h4 className="text-[10px] md:text-xs font-black text-luxury-gold uppercase tracking-[0.08em] flex items-center gap-1.5">
+                      Batch-Translate to {actLang.name} <span className="text-sm select-none leading-none">{actLang.flag}</span>
                     </h4>
                     <p className="text-[9px] md:text-[10px] text-white/50 leading-relaxed mt-0.5">
                       You have <span className="text-luxury-magenta font-black font-sans">{messages.filter(m => m.sender === 'idol' && !m.translatedText).length}</span> unread idol messages in raw language.
@@ -2777,6 +2857,133 @@ export default function ChatRoom({ idol, onBack }: Props) {
                 </button>
               </div>
 
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Translation Settings Center bottom Drawer panel */}
+      <AnimatePresence>
+        {showTranslationSettings && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.6 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 z-[100] cursor-pointer"
+              onClick={() => setShowTranslationSettings(false)}
+            />
+            
+            {/* Slide-Up Cabinet */}
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed inset-x-0 bottom-0 z-[110] glass-gold rounded-t-[2.5rem] border-t border-luxury-gold/20 shadow-[0_-10px_50px_rgba(0,0,0,0.8)] px-6 md:px-8 pt-6 md:pt-8 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:pb-8 flex flex-col max-h-[85vh] overflow-y-auto select-none bg-luxury-black/98"
+            >
+              {/* Drag Handle Accent */}
+              <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-6 shrink-0 cursor-pointer" onClick={() => setShowTranslationSettings(false)} />
+              
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2.5 rounded-xl bg-luxury-gold/10 border border-luxury-gold/20 text-luxury-gold">
+                  <Languages size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg md:text-xl font-display font-black text-white uppercase tracking-wider">
+                    Translation Settings
+                  </h2>
+                  <p className="text-[10px] md:text-xs text-white/50">
+                    Customize your neural Gemini language adapter
+                  </p>
+                </div>
+              </div>
+
+              {/* Autotranslate Option Panel */}
+              <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3 mb-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-bold text-white uppercase tracking-wider">Auto-Translate Incoming Chats</p>
+                    <p className="text-[10px] text-white/40">Translate messages from idols as soon as they arrive in real-time.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const updated = !autoTranslate;
+                      setAutoTranslate(updated);
+                      localStorage.setItem('bubble_auto_translate', String(updated));
+                      triggerHaptic(10);
+                    }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
+                      autoTranslate ? 'bg-luxury-gold' : 'bg-white/10'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-black shadow ring-0 transition duration-200 ease-in-out ${
+                        autoTranslate ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Language Selection Grid */}
+              <div className="space-y-3">
+                <span className="text-[8px] font-mono tracking-widest text-[#F59E0B] uppercase font-bold">
+                  Select Translation Language
+                </span>
+                
+                <div className="grid grid-cols-2 gap-2.5">
+                  {SUPPORTED_LANGS.map((lang) => {
+                    const isSelected = targetLang === lang.code;
+                    return (
+                      <button
+                        key={lang.code}
+                        onClick={() => {
+                          setTargetLang(lang.code);
+                          localStorage.setItem('bubble_target_lang', lang.code);
+                          triggerHaptic(15);
+                        }}
+                        className={`p-3 rounded-2xl text-left border flex items-center gap-2.5 transition-all outline-none ${
+                          isSelected
+                            ? 'bg-gradient-to-tr from-luxury-magenta/20 to-luxury-gold/10 border-luxury-gold text-white shadow-[0_4px_15px_-5px_rgba(255,215,0,0.25)]'
+                            : 'bg-white/[0.01] border-white/5 hover:bg-white/5 text-white/70 hover:text-white'
+                        }`}
+                      >
+                        <span className="text-lg md:text-xl leading-none select-none">{lang.flag}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-black uppercase tracking-wider truncate leading-tight">{lang.name}</p>
+                          <p className={`text-[8.5px] font-mono leading-none mt-0.5 ${isSelected ? 'text-luxury-gold' : 'text-white/30'}`}>
+                            {lang.localLabel || 'Translate'}
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <div className="w-5 h-5 rounded-full bg-luxury-gold text-black flex items-center justify-center font-bold">
+                            <Check size={11} strokeWidth={3} />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Informative Note Footer */}
+              <div className="border-t border-white/5 mt-6 pt-4 text-[9.5px] leading-relaxed text-white/30 flex items-start gap-2 select-none">
+                <span className="text-xs">💡</span>
+                <p>
+                  Gemini Neural Translation adapts Japanese, Korean, and English expressions dynamically. Slang, emotional nuance, and emojis are preserved in-character.
+                </p>
+              </div>
+
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={() => setShowTranslationSettings(false)}
+                  className="px-8 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10 text-xs font-black uppercase tracking-wider transition-all duration-300 active:scale-95 cursor-pointer w-full text-center"
+                >
+                  Close Settings
+                </button>
+              </div>
             </motion.div>
           </>
         )}

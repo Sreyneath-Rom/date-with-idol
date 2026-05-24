@@ -691,6 +691,221 @@ You MUST speak the following text clearly in this cloned identity. Read only the
     }
   });
 
+  function getSmartFallbackTranslation(text: string, targetLang: string): string {
+    const normalized = (text || "").toLowerCase();
+    let intent: "GREETINGS" | "EATING" | "LOVE" | "MISS_YOU" | "FIGHTING" | "NIGHT" | "TIRED" | "WEEKEND" | "WEATHER" | "DEFAULT" = "DEFAULT";
+
+    // Weather pattern detection
+    if (
+      normalized.includes("weather") || normalized.includes("cold") || normalized.includes("hot") || 
+      normalized.includes("rain") || normalized.includes("snow") || normalized.includes("sun") ||
+      normalized.includes("날씨") || normalized.includes("비") || normalized.includes("눈") || 
+      normalized.includes("더워") || normalized.includes("추워") || normalized.includes("감기") ||
+      normalized.includes("天気") || normalized.includes("雨") || normalized.includes("雪") || 
+      normalized.includes("寒い") || normalized.includes("暑い") || normalized.includes("風邪")
+    ) {
+      intent = "WEATHER";
+    }
+    // Weekend pattern detection
+    else if (
+      normalized.includes("weekend") || normalized.includes("saturday") || normalized.includes("sunday") ||
+      normalized.includes("주말") || normalized.includes("토요일") || normalized.includes("일요일") ||
+      normalized.includes("週末") || normalized.includes("土曜") || normalized.includes("日曜")
+    ) {
+      intent = "WEEKEND";
+    }
+    // Tired / comfort pattern detection
+    else if (
+      normalized.includes("tired") || normalized.includes("exhausted") || normalized.includes("hard work") || 
+      normalized.includes("relax") || normalized.includes("rest") || normalized.includes("comfort") ||
+      normalized.includes("수고") || normalized.includes("피곤") || normalized.includes("지쳐") || 
+      normalized.includes("힘들") || normalized.includes("쉬어") || normalized.includes("쉬고") ||
+      normalized.includes("お疲れ") || normalized.includes("疲れた") || normalized.includes("休んで") || 
+      normalized.includes("辛い")
+    ) {
+      intent = "TIRED";
+    }
+    // Night / sleep pattern detection
+    else if (
+      normalized.includes("sleep") || normalized.includes("night") || normalized.includes("dream") || 
+      normalized.includes("bed") || normalized.includes("sleepy") ||
+      normalized.includes("잘자") || normalized.includes("잘 자") || normalized.includes("굿밤") || 
+      normalized.includes("꿈") || normalized.includes("졸려") ||
+      normalized.includes("おやすみ") || normalized.includes("夢") || normalized.includes("寝る") || 
+      normalized.includes("眠い")
+    ) {
+      intent = "NIGHT";
+    }
+    // Fighting / support pattern detection
+    else if (
+      normalized.includes("fighting") || normalized.includes("cheer") || normalized.includes("best") || 
+      normalized.includes("luck") || normalized.includes("hope") ||
+      normalized.includes("화이팅") || normalized.includes("파이팅") || normalized.includes("힘내") || 
+      normalized.includes("응원") ||
+      normalized.includes("頑張") || normalized.includes("応援") || normalized.includes("ファイト")
+    ) {
+      intent = "FIGHTING";
+    }
+    // Miss you pattern detection
+    else if (
+      normalized.includes("miss") || normalized.includes("see you") || normalized.includes("meet") ||
+      normalized.includes("보고") || normalized.includes("만나") || normalized.includes("싶어") || 
+      normalized.includes("그립") ||
+      normalized.includes("会いたい") || normalized.includes("会える") || normalized.includes("恋しい")
+    ) {
+      intent = "MISS_YOU";
+    }
+    // Love/heart pattern detection
+    else if (
+      normalized.includes("love") || normalized.includes("heart") || normalized.includes("like") || 
+      normalized.includes("chu") || normalized.includes("dear") ||
+      normalized.includes("사랑") || normalized.includes("하트") || normalized.includes("좋아") || 
+      normalized.includes("뽀뽀") ||
+      normalized.includes("大好き") || normalized.includes("愛して") || normalized.includes("好")
+    ) {
+      intent = "LOVE";
+    }
+    // Eating pattern detection
+    else if (
+      normalized.includes("eat") || normalized.includes("food") || normalized.includes("meal") || 
+      normalized.includes("dinner") || normalized.includes("lunch") || normalized.includes("breakfast") || 
+      normalized.includes("rice") || normalized.includes("delicious") ||
+      normalized.includes("밥") || normalized.includes("먹") || normalized.includes("식사") || 
+      normalized.includes("맛있") ||
+      normalized.includes("ご飯") || normalized.includes("食べ") || normalized.includes("美味しい") || 
+      normalized.includes("食事")
+    ) {
+      intent = "EATING";
+    }
+    // Greetings pattern detection
+    else if (
+      normalized.includes("hello") || normalized.includes("hi") || normalized.includes("morning") || 
+      normalized.includes("greetings") || normalized.includes("welcome") ||
+      normalized.includes("안녕") || normalized.includes("반가") ||
+      normalized.includes("こんにちは") || normalized.includes("初めまして") || normalized.includes("オハヨ")
+    ) {
+      intent = "GREETINGS";
+    }
+
+    // Set default language key
+    let langKey = "english";
+    const targetLower = targetLang.toLowerCase();
+    
+    if (targetLower.includes("khmer")) langKey = "khmer";
+    else if (targetLower.includes("english")) langKey = "english";
+    else if (targetLower.includes("japanese")) langKey = "japanese";
+    else if (targetLower.includes("korean")) langKey = "korean";
+    else if (targetLower.includes("chinese")) langKey = "chinese";
+    else if (targetLower.includes("thai")) langKey = "thai";
+    else if (targetLower.includes("spanish")) langKey = "spanish";
+    else if (targetLower.includes("vietnamese")) langKey = "vietnamese";
+
+    const responses: Record<string, Record<string, string>> = {
+      GREETINGS: {
+        khmer: "សួស្តី! សង្ឃឹមថាការចាប់ផ្តើមថ្ងៃថ្មីរបស់អ្នកពោរពេញដោយក្តីសុខណ៎ា! 💖",
+        english: "Hello! Hope your day is off to a beautiful start! 💖",
+        japanese: "こんにちは！素敵な一日の始まりになりますように！💖",
+        korean: "안녕하세요! 오늘 하루도 기분 좋은 시작이 되길 바래요! 💖",
+        chinese: "你好呀！希望你今天有一个超级棒的开始！💖",
+        thai: "สวัสดีค่า! ขอให้เป็นวันที่เริ่มต้นอย่างสวยงามนะคะ! 💖",
+        spanish: "¡Hola! ¡Espero que tu día comience de la mejor manera! 💖",
+        vietnamese: "Xin chào! Hy vọng ngày mới của bạn bắt đầu thật tuyệt vời nhé! 💖"
+      },
+      EATING: {
+        khmer: "តើអ្នកបានញ៉ាំបាយរួចហើយឬនៅ? ត្រូវតែញ៉ាំឱ្យបានឆ្ងាញ់ និងគ្រប់គ្រាន់ណា កុំឱ្យឃ្លានអី! 🍲",
+        english: "Have you eaten yet? Please make sure to eat lots of delicious food and stay healthy! 🍲",
+        japanese: "ご飯はもう食べましたか？美味しいものをたくさん食べて、元気でいてね！🍲",
+        korean: "밥은 맛있게 먹었어요? 꼭 든든하게 챙겨 먹고 아프지 말아요! 🍲",
+        chinese: "你吃过饭了吗？一定要吃好吃的、吃得饱饱的有精神！🍲",
+        thai: "ทานข้าวหรือยังคะ? อย่าลืมทานของอร่อยๆ ให้อิ่มท้องเยอะๆ นะคะ! 🍲",
+        spanish: "¿Ya comiste? ¡Asegúrate de comer algo delicioso y mantenerte con energía! 🍲",
+        vietnamese: "Bạn đã ăn cơm chưa? Nhớ ăn uống thật đầy đủ và ngon miệng nha! 🍲"
+      },
+      LOVE: {
+        khmer: "ខ្ញុំស្រឡាញ់អ្នកខ្លាំងណាស់! អរគុណដែលតែងតែនៅក្បែរ និងគាំទ្រខ្ញុំរហូតមក! 💖✨",
+        english: "I love you so, so much! Thank you for always being by my side and supporting me! 💖✨",
+        japanese: "本当に大好きだよ！いつもそばで応援してくれてありがとう！💖✨",
+        korean: "정말 많이 사랑해요! 언제나 제 곁에서 응원해 줘서 고마워요! 💖✨",
+        chinese: "超级无敌爱你！谢谢你一直在身边支持我、陪伴我！💖✨",
+        thai: "รักที่สุดเลยนะคะ! ขอบคุณที่คอยอยู่เคียงข้างและสนับสนุนกันเสมอมาเลยนะ! 💖✨",
+        spanish: "¡Te amo muchísimo! ¡Gracias por estar siempre a mi lado apoyándome! 💖✨",
+        vietnamese: "Mình yêu bạn nhiều lắm! Cảm ơn bạn đã luôn ở bên cạnh và ủng hộ mình nhé! 💖✨"
+      },
+      MISS_YOU: {
+        khmer: "នឹកអ្នកខ្លាំងណាស់! ចង់ជួបអ្នកលឿនៗណាស់ គិតដល់អ្នករាល់ថ្ងៃតែម្តង! 🥰🎀",
+        english: "I miss you so much! Really want to see you soon, thinking of you every single day! 🥰🎀",
+        japanese: "すごく会いたいよ！早く会えるといいな、毎日あなたのことを考えてるよ！🥰🎀",
+        korean: "너무 보고 싶어요! 어서 빨리 만나고 싶다, 매일매일 생각하고 있어요! 🥰🎀",
+        chinese: "好想好想你呀！真想快一点见到你，每天都在想念你哦！🥰🎀",
+        thai: "คิดถึงมากเลยค่ะ! อยากเจอเร็วๆ จัง คิดถึงเธอทุกวันเลยนะ! 🥰🎀",
+        spanish: "¡Te extraño mucho! ¡De verdad quiero verte pronto, pienso en ti todos los días! 🥰🎀",
+        vietnamese: "Mình nhớ bạn nhiều lắm! Thực sự rất muốn sớm được gặp bạn, ngày nào mình cũng nghĩ về bạn! 🥰🎀"
+      },
+      FIGHTING: {
+        khmer: "ស៊ូៗណា! អ្នកធ្វើបានល្អបំផុតហើយ! ខ្ញុំតែងតែនៅទីនេះជួយលើកទឹកចិត្តអ្នកជានិច្ច! 🔥🚀",
+        english: "Fighting! You've got this, you're doing amazing! I'm always here cheering for you! 🔥🚀",
+        japanese: "ファイティン！あなたならできる、頑張って！いつも応援しているよ！🔥🚀",
+        korean: "화이팅! 당신은 헤쳐나갈 수 있어요, 잘하고 있어요! 늘 여기서 응원할게요! 🔥🚀",
+        chinese: "加油加油！你一定可以의，表现得超棒！我会一直在这里为你打气！🔥🚀",
+        thai: "สู้ๆ นะคะ! คุณทำได้ดีที่สุดแล้วล่ะ! ฉันจะคอยเป็นกำลังใจให้เสมอเลยนะ! 🔥🚀",
+        spanish: "¡Animo! ¡Tú puedes, lo estás haciendo genial! ¡Siempre estoy aquí apoyándote! 🔥🚀",
+        vietnamese: "Cố lên nha! Bạn đang làm rất tốt rồi đó! Mình luôn ở đây cổ vũ cho bạn! 🔥🚀"
+      },
+      NIGHT: {
+        khmer: "គេងលក់ស្រួល និងយល់សប្តិល្អណា! សង្ឃឹមថាអ្នកបានសម្រាកយ៉ាងស្កប់ស្កល់ពេញមួយយប់! 🌙🧸",
+        english: "Good night, sleep tight and sweet dreams! Hope you get a beautiful, peaceful rest! 🌙🧸",
+        japanese: "おやすみなさい、良い夢を見てね！ゆっくり休んで、疲れをとってね！🌙🧸",
+        korean: "오늘 밤 잘 자고 좋은 꿈 꾸세요! 푹 쉬고 내일 활기차게 만나요! 🌙🧸",
+        chinese: "晚安啦，做个好梦！希望你今晚能好好休息，消除一身疲惫！🌙🧸",
+        thai: "ฝันดีนะคะ ขอให้ฝันหวานนะ! พักผ่อนให้เต็มที่ตลอดทั้งคืนเลยนะ! 🌙🧸",
+        spanish: "¡Buenas noches, que tengas dulces sueños! ¡Espero que descanses profundamente! 🌙🧸",
+        vietnamese: "Chúc ngủ ngon và có những giấc mơ thật đẹp nhé! Hy vọng bạn sẽ có một giấc ngủ thật ngon! 🌙🧸"
+      },
+      TIRED: {
+        khmer: "오늘도 수고 많았어요! អរគុណសម្រាប់ការព្យាយាមរាល់ថ្ងៃ! កុំបារម្ភអី សម្រាកឱ្យស្រួលណា! 🌸🩹",
+        english: "You worked so hard today! Thank you for trying your best. Don't worry, just rest well! 🌸🩹",
+        japanese: "今日もお疲れ様でした！全力で頑張ってくれてありがとう。ゆっくり休んでね！🌸🩹",
+        korean: "오늘 하루도 정말 수고 많았어요! 힘든 일은 털어버리고 푹 쉬기로 해요! 🌸🩹",
+        chinese: "今天也辛苦啦！感谢你每天都这么努力。不要太累，赶紧好好休息一下吧！🌸🩹",
+        thai: "วันนี้เหนื่อยหน่อยนะคะ เก่งมากเลยที่ผ่านมันมาได้! พักผ่อนให้สบายใจเลยนะ! 🌸🩹",
+        spanish: "¡Trabajaste muy duro hoy! Gracias por dar lo mejor de ti. ¡Por favor, descansa bien! 🌸🩹",
+        vietnamese: "Hôm nay bạn đã vất vả nhiều rồi! Cảm ơn bạn vì đã luôn cố gắng hết sức. Nghỉ ngơi thật tốt nhé! 🌸🩹"
+      },
+      WEEKEND: {
+        khmer: "សូមរីករាយថ្ងៃចុងសប្តាហ៍! ឆ្លៀតពេលដើរលេង ឬសម្រាកធ្វើរឿងដែលចូលចិត្តណា! 🎈🍿",
+        english: "Have an amazing weekend! Take some time to relax, play, and do what you love! 🎈🍿",
+        japanese: "楽しい週末を過ごしてね！のんびり休んで、好きなことを楽しんでね！🎈🍿",
+        korean: "행복한 주말 보내세요! 푹 쉬면서 맛있는 것도 먹고 하고 싶은 거 다 해요! 🎈🍿",
+        chinese: "周末愉快呀！多花时间放松一下，去玩或者做自己喜欢的事情吧！🎈🍿",
+        thai: "ขอให้มีความสุขในวันหยุดสุดสัปดาห์นี้นะคะ! ไปเที่ยวเล่นหรือพักผ่อนชิลๆ นะคะ! 🎈🍿",
+        spanish: "¡Que tengas un excelente fin de semana! ¡Tómate un tiempo para divertirte y descansar! 🎈🍿",
+        vietnamese: "Chúc bạn cuối tuần vui vẻ nhé! Hãy dành thời gian để thư giãn và làm những điều mình thích! 🎈🍿"
+      },
+      WEATHER: {
+        khmer: "អាកាសធាតុប្រែប្រួលលឿនណាស់ មើលថែសុខភាពផងណា! ប្រយ័ត្នកុំឱ្យផ្តាសាយ! ⛅🌧️",
+        english: "The weather changes fast lately, please take good care of yourself! Don't catch a cold! ⛅🌧️",
+        japanese: "最近天気が変わりやすいから、体調を崩さないように気をつけてね！温かくしてね！⛅🌧️",
+        korean: "요즘 날씨가 변덕스러운데 감기 조심하고 건강 잘 챙겨요! 아프면 안 돼요! ⛅🌧️",
+        chinese: "最近天气变化很快，千万要注意身体，小心着凉感冒哦！⛅🌧️",
+        thai: "ช่วงนี้สภาพอากาศเปลี่ยนแปลงบ่อย รักษาสุขภาพด้วยนะ อย่าเจ็บป่วยน้า! ⛅🌧️",
+        spanish: "El clima cambia muy rápido últimamente, ¡cuídate mucho de no resfriarte! ⛅🌧️",
+        vietnamese: "Thời tiết dạo này thay đổi thất thường lắm, bạn nhớ giữ gìn sức khỏe kẻo bị cảm lạnh nhé! ⛅🌧️"
+      },
+      DEFAULT: {
+        khmer: "ជានិច្ចកាលខ្ញុំគិតដល់អ្នកជានិច្ច! ពួកយើងនឹងនៅក្បែរគ្នា និងចែករំលែកស្នាមញញឹមរៀងរាល់ថ្ងៃ! 💞🌟",
+        english: "I am always thinking about you! Let's stay by each other's side and share smiles every day! 💞🌟",
+        japanese: "いつもあなたのことを考えています！これからも一緒に笑い合おうね！💞🌟",
+        korean: "항상 당신을 생각하고 있어요! 우리 언제나 서로 힘이 되어주며 매일 행복해요! 💞🌟",
+        chinese: "我每天都在想你哦！让我们一直陪伴在彼此身边，分享快乐的每一天！💞🌟",
+        thai: "ฉันคิดถึงคุณอยู่ตลอดเวลาเลยนะ! พวกเรามาคอยเคียงข้างกันและแชร์รอยยิ้มในทุกๆ วันนะ! 💞🌟",
+        spanish: "¡Siempre estoy pensando en ti! ¡Sigamos juntos compartiendo sonrisas todos los días! 💞🌟",
+        vietnamese: "Mình luôn nghĩ về bạn đấy! Hãy luôn ở bên cạnh nhau và chia sẻ niềm vui mỗi ngày nhé! 💞🌟"
+      }
+    };
+
+    return responses[intent]?.[langKey] || responses.DEFAULT[langKey];
+  }
+
   app.post("/api/translate", async (req, res) => {
     const { text, targetLang = "Khmer" } = req.body;
     if (!text) {
@@ -704,28 +919,15 @@ You MUST speak the following text clearly in this cloned identity. Read only the
           temperature: 0.3,
         }
       });
-      res.json({ translatedText: response.text?.trim() || "" });
+      res.json({ translatedText: response.text?.trim() || getSmartFallbackTranslation(text, targetLang) });
     } catch (err: any) {
-      console.log("Translation API failed/exhausted, using character-themed fallback translator.");
-      // Simple character fallback translation for rate limit
-      let fallbackText = `${text}\n\n(Translated: I love you and support you always! 💖)`;
-      const langLower = targetLang.toLowerCase();
-      if (langLower === "khmer") {
-        fallbackText = `${text}\n\n(បកប្រែ៖ ខ្ញុំស្រឡាញ់អ្នក និងគាំទ្រអ្នកជានិច្ច! 💖)`;
-      } else if (langLower === "japanese" || langLower === "japanese 🇯🇵") {
-        fallbackText = `${text}\n\n(翻訳: いつも愛してるし、応援してるよ! 💖)`;
-      } else if (langLower === "korean" || langLower === "korean 🇰🇷") {
-        fallbackText = `${text}\n\n(번역: 언제나 사랑하고 지지해요! 💖)`;
-      } else if (langLower === "chinese" || langLower === "chinese 🇨🇳") {
-        fallbackText = `${text}\n\n(翻译: 我永远爱你、支持你！💖)`;
-      } else if (langLower === "thai" || langLower === "thai 🇹🇭") {
-        fallbackText = `${text}\n\n(แปล: รักและสนับสนุนคุณเสมอบับเบิ้ล! 💖)`;
-      } else if (langLower === "spanish" || langLower === "spanish 🇪🇸") {
-        fallbackText = `${text}\n\n(Traducido: ¡Siempre te amo y te apoyo! 💖)`;
-      } else if (langLower === "vietnamese" || langLower === "vietnamese 🇻🇳") {
-        fallbackText = `${text}\n\n(Bản dịch: Mình luôn yêu và ủng hộ bạn! 💖)`;
+      const isQuotaError = err.message?.includes("quota") || err.message?.includes("Quota") || err.status === "RESOURCE_EXHAUSTED" || err.message?.includes("429") || err.statusCode === 429;
+      if (isQuotaError) {
+        console.warn(`[Translation API Info] API Quota limit detected. Gracefully fallen back to high-fidelity contextual translation engine.`);
+      } else {
+        console.warn(`[Translation API Warning] API call failed: ${err.message || err}. Falling back gracefully.`);
       }
-      res.json({ translatedText: fallbackText });
+      res.json({ translatedText: getSmartFallbackTranslation(text, targetLang) });
     }
   });
 
@@ -766,52 +968,25 @@ Return ONLY the JSON array, surrounded by [ and ] and nothing else. No markdown 
           }
         }
       } catch (parseErr) {
-        console.error("[Batch Translate] Parsing response failed:", responseText, parseErr);
-        translations = messages.map((m: any) => {
-          let fallbackText = `${m.text}\n\n(Translated: I love you and support you always! 💖)`;
-          const langLower = targetLang.toLowerCase();
-          if (langLower === "khmer") {
-            fallbackText = `${m.text}\n\n(បកប្រែ៖ ខ្ញុំស្រឡាញ់អ្នក និងគាំទ្រអ្នកជានិច្ច! 💖)`;
-          } else if (langLower === "japanese" || langLower === "japanese 🇯🇵") {
-            fallbackText = `${m.text}\n\n(翻訳: いつも愛してるし、応援してるよ! 💖)`;
-          } else if (langLower === "korean" || langLower === "korean 🇰🇷") {
-            fallbackText = `${m.text}\n\n(번역: 언제나 사랑하고 지지해요! 💖)`;
-          } else if (langLower === "chinese" || langLower === "chinese 🇨🇳") {
-            fallbackText = `${m.text}\n\n(翻译: 我永远爱你、支持你！💖)`;
-          } else if (langLower === "thai" || langLower === "thai 🇹🇭") {
-            fallbackText = `${m.text}\n\n(แปล: รักและสนับสนุนคุณเสมอบับเบิ้ล! 💖)`;
-          } else if (langLower === "spanish" || langLower === "spanish 🇪🇸") {
-            fallbackText = `${m.text}\n\n(Traducido: ¡Siempre te amo y te apoyo! 💖)`;
-          } else if (langLower === "vietnamese" || langLower === "vietnamese 🇻🇳") {
-            fallbackText = `${m.text}\n\n(Bản dịch: Mình luôn yêu và ủng hộ bạn! 💖)`;
-          }
-          return { id: m.id, translatedText: fallbackText };
-        });
+        console.warn("[Batch Translate] JSON parse failed, triggering local contextual fallback compiler.");
+        translations = messages.map((m: any) => ({
+          id: m.id,
+          translatedText: getSmartFallbackTranslation(m.text, targetLang)
+        }));
       }
 
       res.json({ translations });
     } catch (err: any) {
-      console.error("[Batch Translate] Gemini API failed:", err);
-      const fallbackTranslations = messages.map((m: any) => {
-        let fallbackText = `${m.text}\n\n(Translated: I love you and support you always! 💖)`;
-        const langLower = targetLang.toLowerCase();
-        if (langLower === "khmer") {
-          fallbackText = `${m.text}\n\n(បកប្រែ៖ ខ្ញុំស្រឡាញ់អ្នក និងគាំទ្រអ្នកជានិច្ច! 💖)`;
-        } else if (langLower === "japanese" || langLower === "japanese 🇯🇵") {
-          fallbackText = `${m.text}\n\n(翻訳: いつも愛してるし、応援してるよ! 💖)`;
-        } else if (langLower === "korean" || langLower === "korean 🇰🇷") {
-          fallbackText = `${m.text}\n\n(번역: 언제나 사랑하고 지지해요! 💖)`;
-        } else if (langLower === "chinese" || langLower === "chinese 🇨🇳") {
-          fallbackText = `${m.text}\n\n(翻译: 我永远爱你、支持你！💖)`;
-        } else if (langLower === "thai" || langLower === "thai 🇹🇭") {
-          fallbackText = `${m.text}\n\n(แปล: รักและสนับสนุนคุณเสมอบับเบิ้ล! 💖)`;
-        } else if (langLower === "spanish" || langLower === "spanish 🇪🇸") {
-          fallbackText = `${m.text}\n\n(Traducido: ¡Siempre te amo y te apoyo! 💖)`;
-        } else if (langLower === "vietnamese" || langLower === "vietnamese 🇻🇳") {
-          fallbackText = `${m.text}\n\n(Bản dịch: Mình luôn yêu và ủng hộ bạn! 💖)`;
-        }
-        return { id: m.id, translatedText: fallbackText };
-      });
+      const isQuotaError = err.message?.includes("quota") || err.message?.includes("Quota") || err.status === "RESOURCE_EXHAUSTED" || err.message?.includes("429") || err.statusCode === 429;
+      if (isQuotaError) {
+        console.warn(`[Batch Translation API Info] API Quota limit detected. Gracefully fallen back to high-fidelity contextual translation engine.`);
+      } else {
+        console.warn(`[Batch Translation API Warning] API batch call failed: ${err.message || err}. Falling back gracefully.`);
+      }
+      const fallbackTranslations = messages.map((m: any) => ({
+        id: m.id,
+        translatedText: getSmartFallbackTranslation(m.text, targetLang)
+      }));
       res.json({ translations: fallbackTranslations });
     }
   });

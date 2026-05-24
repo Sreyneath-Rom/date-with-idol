@@ -11,9 +11,10 @@ interface Props {
   onClose: () => void;
   onEnterDate: (event: DynamicEvent) => void;
   onAddStats: (stats: Partial<UserProfile>) => void;
+  onMissionCompleted?: (text: string) => void;
 }
 
-export default function EventCenter({ idol, onClose, onEnterDate, onAddStats }: Props) {
+export default function EventCenter({ idol, onClose, onEnterDate, onAddStats, onMissionCompleted }: Props) {
   const { user } = useFirebase();
   const [activeTab, setActiveTab] = useState<'missions' | 'events'>('missions');
   const [missions, setMissions] = useState<DailyMission[]>([]);
@@ -85,6 +86,10 @@ export default function EventCenter({ idol, onClose, onEnterDate, onAddStats }: 
           
           // Add stats feedback to parent
           onAddStats({ [m.rewardType]: m.rewardValue });
+
+          if (onMissionCompleted) {
+            onMissionCompleted(m.text);
+          }
 
           // Remove reward animation after 2.5s
           setTimeout(() => {

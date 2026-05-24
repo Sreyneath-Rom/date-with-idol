@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   MessageSquare, Heart, Camera, Home, Sparkles, 
-  Clock, Cloud, LogOut, Volume2, Award, Zap, Compass, Star, Mic, X, Calendar, BookOpen
+  Clock, Cloud, LogOut, Volume2, Award, Zap, Compass, Star, Mic, X, Calendar, BookOpen, CheckCircle
 } from 'lucide-react';
 import { Idol, AppView, StatusUpdate, UserProfile, DynamicEvent } from '../types';
 import { useFirebase } from '../lib/FirebaseContext';
@@ -10,6 +10,7 @@ import { speakText, playSentSound, playReceivedSound } from '../utils/audio';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, doc, onSnapshot, setDoc, updateDoc, increment } from 'firebase/firestore';
 import { DEFAULT_STATUS_UPDATES } from '../constants';
+import { GENERATED_MISSIONS } from '../data/sprintData';
 import EventCenter from './EventCenter';
 import DateScene from './DateScene';
 import StoryEpisodes from './StoryEpisodes';
@@ -81,6 +82,44 @@ export default function HomeHub({ idol, onNavigate, profile, onUpdateProfile }: 
   const [showEventsPanel, setShowEventsPanel] = useState(false);
   const [showStoryEpisodes, setShowStoryEpisodes] = useState(false);
   const [activeDateEvent, setActiveDateEvent] = useState<DynamicEvent | null>(null);
+  const [missionsStatus, setMissionsStatus] = useState({ completed: 0, total: 3 });
+
+  // Mission completed toast notification state
+  const [activeToast, setActiveToast] = useState<{ id: string; text: string } | null>(null);
+
+  const triggerMissionToast = (text: string) => {
+    setActiveToast({ id: `toast_${Date.now()}`, text });
+  };
+
+  useEffect(() => {
+    if (!activeToast) return;
+    const timer = setTimeout(() => {
+      setActiveToast(null);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [activeToast]);
+
+  // Update completed missions tracking
+  useEffect(() => {
+    const cachedMissionsKey = `bubble_missions_v1_${idol.id}`;
+    const cachedMissions = localStorage.getItem(cachedMissionsKey);
+    let currentMissions: any[] = [];
+    if (cachedMissions) {
+      try {
+        currentMissions = JSON.parse(cachedMissions);
+      } catch (_) {
+        currentMissions = GENERATED_MISSIONS[idol.id] || GENERATED_MISSIONS.nayeon;
+      }
+    } else {
+      currentMissions = GENERATED_MISSIONS[idol.id] || GENERATED_MISSIONS.nayeon;
+    }
+
+    const completed = currentMissions.filter((m: any) => m.completed).length;
+    setMissionsStatus({
+      completed,
+      total: currentMissions?.length || 3
+    });
+  }, [idol.id, showEventsPanel, activeDateEvent]);
 
   const handleAddStats = (stats: Partial<UserProfile>) => {
     const updated = {
@@ -572,6 +611,77 @@ export default function HomeHub({ idol, onNavigate, profile, onUpdateProfile }: 
             </button>
           </div>
 
+          {/* Card: Daily Missions Completion Progress Tracker */}
+          <div 
+            onClick={() => { setShowEventsPanel(true); playReceivedSound(); }}
+            className="glass p-5 rounded-[1.8rem] border shadow-xl space-y-3.5 relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-[1.01] hover:bg-white/[0.04] group/mission"
+            style={{ 
+              borderColor: missionsStatus.completed === missionsStatus.total ? '#F59E0B' : `${activeColor}20`,
+              boxShadow: missionsStatus.completed === missionsStatus.total
+                ? '0 15px 35px -15px rgba(245,158,11,0.25), inset 0 1px 1px rgba(255,255,255,0.05)'
+                : `0 15px 35px -15px ${activeColor}15, inset 0 1px 1px rgba(255,255,255,0.05)`
+            }}
+          >
+            {/* Background glowing gradient when completed */}
+            {missionsStatus.completed === missionsStatus.total && (
+              <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-transparent pointer-events-none" />
+            )}
+
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <span className="text-[8px] font-mono tracking-widest text-white/45 uppercase flex items-center gap-1.5 leading-none font-sans">
+                  <CheckCircle size={10} className={missionsStatus.completed === missionsStatus.total ? "text-amber-400" : "text-white/40"} />
+                  DAILY MILESTONES
+                </span>
+                <p className="text-[10px] uppercase font-bold tracking-wider text-white">Quest Board Tracker</p>
+              </div>
+
+              {/* Counter Pill Badge */}
+              <span className={`px-2 py-0.5 rounded-lg text-[9px] font-mono font-bold leading-none border ${
+                missionsStatus.completed === missionsStatus.total
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 animate-pulse-soft'
+                  : 'bg-white/5 border-white/10 text-white/70'
+              }`}>
+                {missionsStatus.completed}/{missionsStatus.total} Cleared
+              </span>
+            </div>
+
+            {/* Visual Progress bar */}
+            <div className="space-y-1.5">
+              <div className="h-2 rounded-full bg-white/5 relative overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(missionsStatus.completed / (missionsStatus.total || 1)) * 100}%` }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  style={{ 
+                    background: missionsStatus.completed === missionsStatus.total 
+                      ? 'linear-gradient(to right, #F59E0B, #FFA07A)' 
+                      : `linear-gradient(to right, ${activeColor}, #FFA07A)` 
+                  }}
+                  className="h-full rounded-full"
+                />
+              </div>
+              <div className="flex justify-between text-[8px] font-mono text-white/30 uppercase tracking-widest">
+                <span>Bond Milestones</span>
+                <span>{Math.round((missionsStatus.completed / (missionsStatus.total || 1)) * 100)}% Complete</span>
+              </div>
+            </div>
+
+            {/* Supporting motivation text */}
+            <div className="text-[10px] leading-relaxed text-white/50 border-t border-white/5 pt-2">
+              {missionsStatus.completed === missionsStatus.total ? (
+                <div className="flex items-center gap-1 text-amber-300">
+                  <Sparkles size={11} className="text-amber-400 animate-pulse" />
+                  <span>Grand slam! Today's quests completed.</span>
+                </div>
+              ) : (
+                <span className="group-hover/mission:text-white transition-colors duration-300">
+                  Tap to launch Event Center & gain stats reward metrics.
+                </span>
+              )}
+            </div>
+          </div>
+
           {/* Quick-links Bento Action Shortcuts */}
           <div 
             className="glass p-5 rounded-[1.8rem] border shadow-xl space-y-3.5 transition-all duration-300 hover:scale-[1.01]"
@@ -656,6 +766,7 @@ export default function HomeHub({ idol, onNavigate, profile, onUpdateProfile }: 
               idol={idol}
               onClose={() => setShowEventsPanel(false)}
               onAddStats={handleAddStats}
+              onMissionCompleted={triggerMissionToast}
               onEnterDate={(ev) => {
                 setShowEventsPanel(false);
                 setActiveDateEvent(ev);
@@ -844,6 +955,42 @@ export default function HomeHub({ idol, onNavigate, profile, onUpdateProfile }: 
                 )}
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Subtle Toast Notification for completed missions */}
+      <AnimatePresence>
+        {activeToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -40, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 350, damping: 25 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-[110] w-full max-w-xs px-4 select-none pointer-events-none"
+          >
+            <div 
+              className="glass p-3 rounded-2xl border flex items-center gap-3 shadow-2xl relative overflow-hidden backdrop-blur-xl"
+              style={{
+                borderColor: '#F59E0B',
+                boxShadow: `0 20px 40px -15px rgba(245, 158, 11, 0.35), inset 0 1px 1px rgba(255,255,255,0.05)`
+              }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-transparent pointer-events-none" />
+              
+              <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 flex-shrink-0 animate-pulse">
+                <CheckCircle size={14} className="text-amber-400" />
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <span className="text-[7.5px] font-mono tracking-widest text-amber-400 font-extrabold uppercase block leading-none mb-0.5">
+                  MISSION COMPLETED
+                </span>
+                <p className="text-[10px] md:text-xs font-semibold text-white/95 truncate leading-snug">
+                  {activeToast.text}
+                </p>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
