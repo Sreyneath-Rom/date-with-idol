@@ -9,9 +9,10 @@ export interface Idol {
   hobbies: string[];
   favoriteFood: string;
   difficulty: number;
+  instagram?: string;
 }
 
-export type AppView = 'intro' | 'selection' | 'hub' | 'chat' | 'date' | 'memories' | 'closet' | 'voicelab';
+export type AppView = 'intro' | 'selection' | 'hub' | 'chat' | 'memories';
 
 export interface ChatMessage {
   id: string;

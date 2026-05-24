@@ -12,6 +12,7 @@ export const IDOLS: Idol[] = [
     hobbies: ['Watching movies', 'Finding good restaurants', 'Solo travel'],
     favoriteFood: 'Marinated Crabs & Jello',
     difficulty: 5,
+    instagram: '@nayeonyny',
   },
   {
     id: 'jeongyeon',
@@ -24,6 +25,7 @@ export const IDOLS: Idol[] = [
     hobbies: ['Lego building', 'Running', 'Cleaning and organizing'],
     favoriteFood: 'Golbangi Muchim (Sea Snail Salad)',
     difficulty: 7,
+    instagram: '@jy_piece',
   },
   {
     id: 'momo',
@@ -36,6 +38,7 @@ export const IDOLS: Idol[] = [
     hobbies: ['Eating', 'Looking at pictures of food', 'Dancing', 'Shopping'],
     favoriteFood: 'Jokbal (Pig\'s Trotters)',
     difficulty: 6,
+    instagram: '@momo',
   },
   {
     id: 'sana',
@@ -48,6 +51,7 @@ export const IDOLS: Idol[] = [
     hobbies: ['Collecting perfumes', 'Shopping', 'Eating luxurious snacks'],
     favoriteFood: 'Spicy Food & Yogurt Smoothies',
     difficulty: 4,
+    instagram: '@m.by__sana',
   },
   {
     id: 'jihyo',
@@ -60,6 +64,7 @@ export const IDOLS: Idol[] = [
     hobbies: ['Surfing', 'Pilates', 'Swimming', 'Online gaming'],
     favoriteFood: 'Smoothies & Milk Tea',
     difficulty: 6,
+    instagram: '@_zyozyo',
   },
   {
     id: 'mina',
@@ -72,6 +77,7 @@ export const IDOLS: Idol[] = [
     hobbies: ['Gaming (Minecraft)', 'Ballet', 'Knitting', 'Puzzles'],
     favoriteFood: 'Yukhoe & Ketchup',
     difficulty: 8,
+    instagram: '@mina_sr_my',
   },
   {
     id: 'dahyun',
@@ -84,6 +90,7 @@ export const IDOLS: Idol[] = [
     hobbies: ['Playing piano', 'Songwriting', 'Spotting cameras', 'Smiling'],
     favoriteFood: 'Chocolate & Bread',
     difficulty: 5,
+    instagram: '@dahhyunnee',
   },
   {
     id: 'chaeyoung',
@@ -96,6 +103,7 @@ export const IDOLS: Idol[] = [
     hobbies: ['Drawing', 'Songwriting', 'Poetry', 'Listening to indie music'],
     favoriteFood: 'Strawberries & Pasta',
     difficulty: 5,
+    instagram: '@chaeyo.0',
   },
   {
     id: 'tzuyu',
@@ -108,6 +116,7 @@ export const IDOLS: Idol[] = [
     hobbies: ['Listening to music', 'Playing with dogs', 'Traveling', 'Watching performances'],
     favoriteFood: 'Kimbap & Eel',
     difficulty: 7,
+    instagram: '@thinkaboutzu',
   }
 ];
 

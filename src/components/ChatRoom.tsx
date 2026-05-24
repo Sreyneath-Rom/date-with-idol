@@ -58,6 +58,24 @@ const IDOL_STATUSES: Record<string, { status: string; mbti: string; favoriteEmoj
   tzuyu: { status: "👑 Graceful thoughts. Wishing you raw peace.", mbti: "ISFP", favoriteEmoji: "🐶" }
 };
 
+interface TranslationLang {
+  code: string;
+  name: string;
+  flag: string;
+  localLabel?: string;
+}
+
+const SUPPORTED_LANGS: TranslationLang[] = [
+  { code: 'Khmer', name: 'Khmer', flag: '🇰🇭', localLabel: 'បកប្រែ' },
+  { code: 'English', name: 'English', flag: '🇺🇸', localLabel: 'Translated' },
+  { code: 'Japanese', name: 'Japanese', flag: '🇯🇵', localLabel: '翻訳' },
+  { code: 'Korean', name: 'Korean', flag: '🇰🇷', localLabel: '번역' },
+  { code: 'Chinese', name: 'Chinese', flag: '🇨🇳', localLabel: '翻译' },
+  { code: 'Thai', name: 'Thai', flag: '🇹🇭', localLabel: 'แปล' },
+  { code: 'Spanish', name: 'Spanish', flag: '🇪🇸', localLabel: 'Traducido' },
+  { code: 'Vietnamese', name: 'Vietnamese', flag: '🇻🇳', localLabel: 'Dịch' },
+];
+
 const getEstimatedReadTime = (text: string) => {
   if (!text) return '';
   const wordCount = text.trim().split(/\s+/).length;
@@ -108,6 +126,10 @@ export default function ChatRoom({ idol, onBack }: Props) {
   const [isDragging, setIsDragging] = useState(false);
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [targetLang, setTargetLang] = useState<string>(() => {
+    return localStorage.getItem('bubble_target_lang') || 'Khmer';
+  });
+  const [showTranslationSettings, setShowTranslationSettings] = useState(false);
   const [showProfileCard, setShowProfileCard] = useState(false);
   const [selectedWallpaperId, setSelectedWallpaperId] = useState<string>(() => {
     const activeChatId = currentGroup ? currentGroup.id : currentIdol.id;
@@ -131,6 +153,8 @@ export default function ChatRoom({ idol, onBack }: Props) {
   };
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const wasAtBottomRef = useRef<boolean>(true);
 
   // Voice recording states and refs
   const [isRecording, setIsRecording] = useState(false);
@@ -633,50 +657,71 @@ export default function ChatRoom({ idol, onBack }: Props) {
     };
   }, []);
 
-  useEffect(() => {
+  const handleScroll = () => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+      wasAtBottomRef.current = (scrollHeight - scrollTop - clientHeight) < 150;
     }
+  };
 
-    // Dynamic auto-scrolling for long messages (e.g. typing text) or active status changes
-    const lastMessage = messages[messages.length - 1];
-    if (!lastMessage) return;
+  useEffect(() => {
+    if (!contentRef.current || !scrollRef.current) return;
 
-    const isImage = lastMessage.type === 'image' || !!lastMessage.imageUrl;
-    const isLongText = typeof lastMessage.text === 'string' && lastMessage.text.length > 55;
-
-    if (isImage || isLongText) {
-      let intervalId: NodeJS.Timeout | null = null;
-
-      // If it's a typing long message by the idol (which fades characters sequentially),
-      // we continuously adjust the scroll over the estimate typing transition time.
-      if (lastMessage.sender === 'idol' && lastMessage.text && lastMessage.text.length > 55 && !lastMessage.translatedText) {
-        const charDurationEstimate = lastMessage.text.length * 20 + 300; // 20ms per char animation + cushion
-        const startTime = Date.now();
-
-        intervalId = setInterval(() => {
-          if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-          }
-          if (Date.now() - startTime > charDurationEstimate) {
-            if (intervalId) clearInterval(intervalId);
-          }
-        }, 120);
-      } else {
-        // Instant/delayed adjustments for other long text messages
-        const timer = setTimeout(() => {
-          if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-          }
-        }, 150);
-        return () => clearTimeout(timer);
+    const resizeObserver = new ResizeObserver(() => {
+      if (scrollRef.current && wasAtBottomRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
       }
+    });
 
-      return () => {
-        if (intervalId) clearInterval(intervalId);
-      };
+    resizeObserver.observe(contentRef.current);
+    
+    // Set initially at bottom
+    wasAtBottomRef.current = true;
+    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeView === 'room') {
+      wasAtBottomRef.current = true;
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      }, 50);
     }
-  }, [messages, isTyping]);
+  }, [activeView]);
+
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage) {
+      if (lastMessage.sender === 'player') {
+        wasAtBottomRef.current = true;
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      } else if (lastMessage.sender === 'idol' && wasAtBottomRef.current) {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
+      }
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    if (isTyping && wasAtBottomRef.current) {
+      if (scrollRef.current) {
+        setTimeout(() => {
+          if (scrollRef.current && wasAtBottomRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          }
+        }, 60);
+      }
+    }
+  }, [isTyping]);
 
   const getChatHistoryForAPI = (chatMessages: ChatMessage[]) => {
     // Keep last 25 turns for long but highly scalable conversational memory context
@@ -1347,7 +1392,11 @@ export default function ChatRoom({ idol, onBack }: Props) {
                             <div className="space-y-1 overflow-hidden">
                               <div className="flex items-center gap-2">
                                 <h3 className="font-display font-bold text-sm md:text-base text-white group-hover:text-luxury-gold tracking-tight transition-colors truncate">{item.name}</h3>
-                                <span className="text-[7.5px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-luxury-magenta/10 border border-luxury-magenta/20 text-luxury-magenta leading-none truncate">{item.personalityTag}</span>
+                                {item.instagram ? (
+                                  <span className="text-[7.5px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-blue-400 leading-none truncate">{item.instagram}</span>
+                                ) : (
+                                  <span className="text-[7.5px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded bg-luxury-magenta/10 border border-luxury-magenta/20 text-luxury-magenta leading-none truncate">{item.personalityTag}</span>
+                                )}
                               </div>
                               <p className="text-[11px] md:text-xs text-white/45 truncate leading-tight group-hover:text-white/60 transition-colors">
                                 {info.text}
@@ -1459,6 +1508,11 @@ export default function ChatRoom({ idol, onBack }: Props) {
                     <span className={`text-[8px] md:text-[10px] uppercase tracking-widest font-black leading-none transition-colors duration-500 ${isTyping ? 'text-rose-400' : isAway ? 'text-amber-500' : 'text-green-500'}`}>
                       {currentGroup ? (isTyping ? 'Members Typing...' : `${currentGroup.members.length} Members Active`) : isTyping ? 'Typing...' : isAway ? 'Away' : 'Online'}
                     </span>
+                    {!currentGroup && currentIdol.instagram && (
+                      <a href={`https://instagram.com/${currentIdol.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="ml-1 text-[8px] md:text-[9px] uppercase tracking-widest font-mono text-white/40 hover:text-luxury-magenta transition-colors">
+                        ({currentIdol.instagram})
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1607,9 +1661,11 @@ export default function ChatRoom({ idol, onBack }: Props) {
           {/* Messages Scroll Feed */}
           <main 
             ref={scrollRef}
-            className="flex-1 min-h-0 overflow-y-auto p-3.5 md:p-6 space-y-3.5 md:space-y-4 scrolling-content-fade"
+            onScroll={handleScroll}
+            className="flex-1 min-h-0 overflow-y-auto p-3.5 md:p-6 scrolling-content-fade"
           >
-            <div className="h-2" /> 
+            <div ref={contentRef} className="space-y-3.5 md:space-y-4">
+              <div className="h-2" /> 
             <AnimatePresence>
               {messages.map((msg, idx) => {
                 const speakingIdol = IDOLS.find(i => i.id === msg.senderId);
@@ -1882,19 +1938,16 @@ export default function ChatRoom({ idol, onBack }: Props) {
                         </div>
                       )}
 
-                      {/* Display speaking group member name if in group chat */}
-                      {currentGroup && msg.sender === 'idol' && !isConsecutive && (
-                        <div className="text-[10px] md:text-xs text-luxury-gold font-bold mb-1 tracking-wider uppercase flex items-center gap-1 border-b border-white/5 pb-1">
-                          <span>{senderName}</span>
-                          <span className="text-[7px] text-white/40 px-1 rounded bg-white/5 border border-white/5 font-mono scale-90">{speakingIdol?.personalityTag || 'Member'}</span>
-                        </div>
-                      )}
-
-                      {/* Private Bubble Badge */}
-                      {!currentGroup && msg.sender === 'idol' && msg.type !== 'image' && !isConsecutive && (
-                        <div className="flex items-center gap-1 mb-1.5 opacity-40">
-                          <Sparkles size={8} />
-                          <span className="text-[8px] uppercase tracking-tighter font-bold text-luxury-gold">Private Bubble</span>
+                      {msg.sender === 'idol' && !isConsecutive && (
+                        <div className="text-[10px] md:text-xs text-luxury-gold font-bold mb-1 tracking-wider flex items-center gap-1 border-b border-white/5 pb-1">
+                          <span>{speakingIdol?.instagram || senderName}</span>
+                          <span className="text-[7px] text-white/40 px-1 rounded bg-white/5 border border-white/5 font-mono scale-90 uppercase">{speakingIdol?.personalityTag || 'Member'}</span>
+                          {!currentGroup && msg.type !== 'image' && (
+                            <div className="ml-auto flex items-center gap-1 opacity-40">
+                              <Sparkles size={8} />
+                              <span className="text-[7px] uppercase tracking-tighter font-bold text-luxury-gold pt-[1px] leading-none">Private Bubble</span>
+                            </div>
+                          )}
                         </div>
                       )}
                       
@@ -2146,6 +2199,7 @@ export default function ChatRoom({ idol, onBack }: Props) {
               )}
             </AnimatePresence>
             <div className="h-12" /> 
+            </div>
           </main>
 
           {/* Batch Translate unread/untranslated idol messages alert */}
@@ -2467,6 +2521,14 @@ export default function ChatRoom({ idol, onBack }: Props) {
                       Premium Bubble Active
                     </span>
                   </div>
+
+                  {!currentGroup && currentIdol.instagram && (
+                    <div className="flex justify-center md:justify-start">
+                      <a href={`https://instagram.com/${currentIdol.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-[10px] font-mono text-white/80 hover:text-luxury-gold">
+                        <span className="text-luxury-magenta">@</span> {currentIdol.instagram.replace('@', '')}
+                      </a>
+                    </div>
+                  )}
 
                   <p className="text-xs text-white/70 max-w-md italic font-medium leading-relaxed">
                     "{currentGroup ? currentGroup.voiceIntro : IDOL_STATUSES[currentIdol.id]?.status || currentIdol.voiceIntro}"

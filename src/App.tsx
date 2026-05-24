@@ -9,10 +9,7 @@ import CinematicIntro from './components/CinematicIntro';
 import IdolSelection from './components/IdolSelection';
 import HomeHub from './components/HomeHub';
 import ChatRoom from './components/ChatRoom';
-import DateScene from './components/DateScene';
 import MemoryBook from './components/MemoryBook';
-import Closet from './components/Closet';
-import VoiceLab from './components/VoiceLab';
 import { Idol, AppView, UserProfile } from './types';
 import { useFirebase } from './lib/FirebaseContext';
 import { IDOLS } from './constants';
@@ -91,23 +88,6 @@ export default function App() {
           </motion.div>
         )}
 
-        {view === 'date' && selectedIdol && (
-          <motion.div
-            key="date"
-            initial={{ opacity: 0, scale: 1.1 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="fixed inset-0 z-[70]"
-          >
-            <DateScene 
-              idol={selectedIdol} 
-              onClose={() => setView('hub')} 
-              onAffectionGain={handleAffectionGain}
-              onViewMemories={() => setView('memories')}
-            />
-          </motion.div>
-        )}
-
         {view === 'memories' && selectedIdol && (
           <motion.div
             key="memories"
@@ -117,36 +97,6 @@ export default function App() {
             className="fixed inset-0 z-[60]"
           >
             <MemoryBook idol={selectedIdol} onBack={() => setView('hub')} />
-          </motion.div>
-        )}
-
-        {view === 'closet' && selectedIdol && (
-          <motion.div
-            key="closet"
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-0 z-[60]"
-          >
-            <Closet idol={selectedIdol} onBack={() => setView('hub')} />
-          </motion.div>
-        )}
-
-        {view === 'voicelab' && selectedIdol && (
-          <motion.div
-            key="voicelab"
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-0 z-[60]"
-          >
-            <VoiceLab 
-              idol={selectedIdol} 
-              onBack={() => setView('hub')} 
-              onNavigateToChat={() => setView('chat')}
-            />
           </motion.div>
         )}
       </AnimatePresence>

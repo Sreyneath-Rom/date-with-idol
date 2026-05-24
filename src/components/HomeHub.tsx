@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  MessageSquare, Heart, Camera, Shirt, Home, Sparkles, 
-  Clock, MapPin, Cloud, LogOut, Volume2, Award, Zap, Compass, Star, Mic
+  MessageSquare, Heart, Camera, Home, Sparkles, 
+  Clock, Cloud, LogOut, Volume2, Award, Zap, Compass, Star, Mic
 } from 'lucide-react';
 import { Idol, AppView } from '../types';
 import { useFirebase } from '../lib/FirebaseContext';
@@ -264,7 +264,7 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
             }}
           >
             <span className="text-[8px] font-mono tracking-widest uppercase text-white/45 block mb-1 font-sans">BIAS PARAMETERS</span>
-            <div className="grid grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-2 gap-3.5 mb-3.5">
               <div className="p-2.5 rounded-2xl bg-white/5 border border-white/5">
                 <span className="text-[7.5px] font-mono text-white/30 block tracking-widest uppercase mb-0.5">Role Group</span>
                 <span className="text-[10.5px] font-display font-black text-rose-300/90 truncate block">{idol.role.split(',')[0]}</span>
@@ -274,6 +274,12 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
                 <span className="text-[10.5px] font-display font-black text-white/90 truncate block">{idol.favoriteFood.split('&')[0]}</span>
               </div>
             </div>
+            {idol.instagram && (
+              <a href={`https://instagram.com/${idol.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-2.5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/20 transition-all cursor-pointer">
+                <span className="text-[7.5px] font-mono text-white/30 tracking-widest uppercase block">Instagram</span>
+                <span className="text-[10.5px] font-mono font-black text-luxury-gold truncate">{idol.instagram}</span>
+              </a>
+            )}
           </div>
 
         </motion.div>
@@ -306,7 +312,8 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
               alt={idol.name}
               initial={{ y: 50, opacity: 0 }}
               animate={{ 
-                y: [0, -6, 0],
+                y: [0, -8, 0],
+                scale: [1, 1.015, 1],
                 opacity: 1 
               }}
               whileHover={{ 
@@ -316,10 +323,14 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
               transition={{ 
                 y: {
                   repeat: Infinity,
-                  duration: 5,
+                  duration: 4,
                   ease: "easeInOut"
                 },
-                scale: { type: "spring", stiffness: 150, damping: 20 },
+                scale: { 
+                  repeat: Infinity,
+                  duration: 4.5,
+                  ease: "easeInOut" 
+                },
                 opacity: { duration: 0.8, ease: "easeOut" }
               }}
               style={{
@@ -453,33 +464,13 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
             
             <div className="flex flex-col gap-2">
               <button
-                onClick={() => { onNavigate('date'); playReceivedSound(); }}
+                onClick={() => { onNavigate('memories'); playReceivedSound(); }}
                 className="w-full py-2.5 px-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/15 cursor-pointer text-left text-xs font-semibold uppercase tracking-wider text-rose-200/95 transition-all flex items-center justify-between"
               >
                 <span className="flex items-center gap-2">
-                  <MapPin size={12} className="text-rose-400" /> Date Activities
+                  <Camera size={12} className="text-rose-400" /> Memory Book
                 </span>
                 <span className="text-[9px] font-mono text-white/30 font-bold">&#10095;</span>
-              </button>
-              
-              <button
-                onClick={() => { onNavigate('closet'); playReceivedSound(); }}
-                className="w-full py-2.5 px-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/15 cursor-pointer text-left text-xs font-semibold uppercase tracking-wider text-rose-200/95 transition-all flex items-center justify-between"
-              >
-                <span className="flex items-center gap-2">
-                  <Shirt size={12} className="text-emerald-400" /> Dress Up Closet
-                </span>
-                <span className="text-[9px] font-mono text-white/30 font-bold">&#10095;</span>
-              </button>
-
-              <button
-                onClick={() => { onNavigate('voicelab'); playReceivedSound(); }}
-                className="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-purple-500/10 to-indigo-500/10 hover:from-purple-500/20 hover:to-indigo-500/20 border border-purple-500/20 cursor-pointer text-left text-xs font-semibold uppercase tracking-wider text-purple-200/95 transition-all flex items-center justify-between"
-              >
-                <span className="flex items-center gap-2">
-                  <Mic size={12} className="text-purple-400" /> AI Voice Lab
-                </span>
-                <span className="text-[9px] font-mono text-purple-400/80 font-bold">NEW • &#10095;</span>
               </button>
             </div>
           </div>
@@ -498,8 +489,6 @@ export default function HomeHub({ idol, onNavigate, affection }: Props) {
         >
           <NavButton icon={<Home />} label="Home" active={true} onClick={() => onNavigate('hub')} activeColor={activeColor} />
           <NavButton icon={<MessageSquare />} label="Chat" onClick={() => onNavigate('chat')} activeColor={activeColor} />
-          <NavButton icon={<MapPin />} label="Dates" onClick={() => onNavigate('date')} activeColor={activeColor} />
-          <NavButton icon={<Shirt />} label="Closet" onClick={() => onNavigate('closet')} activeColor={activeColor} />
           <NavButton icon={<Camera />} label="Memories" onClick={() => onNavigate('memories')} activeColor={activeColor} />
         </motion.div>
       </footer>

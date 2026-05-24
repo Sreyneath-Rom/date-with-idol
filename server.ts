@@ -653,14 +653,14 @@ You MUST speak the following text clearly in this cloned identity. Read only the
   });
 
   app.post("/api/translate", async (req, res) => {
-    const { text } = req.body;
+    const { text, targetLang = "Khmer" } = req.body;
     if (!text) {
       return res.status(400).json({ error: "Missing text to translate" });
     }
     try {
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
-        contents: [{ role: "user", parts: [{ text: `Translate the following text strictly into Khmer language. Preserve the original emotional, playful, or excited K-pop tone and all emojis, but do not provide any explanation, notes, or extra tags. The output MUST be and contain ONLY the translated Khmer string: "${text}"` }] }],
+        contents: [{ role: "user", parts: [{ text: `Translate the following text strictly into ${targetLang} language. Preserve the original emotional, playful, or excited K-pop tone and all emojis, but do not provide any explanation, notes, or extra tags. The output MUST be and contain ONLY the translated string: "${text}"` }] }],
         config: {
           temperature: 0.3,
         }
@@ -669,18 +669,35 @@ You MUST speak the following text clearly in this cloned identity. Read only the
     } catch (err: any) {
       console.log("Translation API failed/exhausted, using character-themed fallback translator.");
       // Simple character fallback translation for rate limit
-      res.json({ translatedText: `${text}\n\n(បកប្រែ៖ ខ្ញុំស្រឡាញ់អ្នក និងគាំទ្រអ្នកជានិច្ច! 💖)` });
+      let fallbackText = `${text}\n\n(Translated: I love you and support you always! 💖)`;
+      const langLower = targetLang.toLowerCase();
+      if (langLower === "khmer") {
+        fallbackText = `${text}\n\n(បកប្រែ៖ ខ្ញុំស្រឡាញ់អ្នក និងគាំទ្រអ្នកជានិច្ច! 💖)`;
+      } else if (langLower === "japanese" || langLower === "japanese 🇯🇵") {
+        fallbackText = `${text}\n\n(翻訳: いつも愛してるし、応援してるよ! 💖)`;
+      } else if (langLower === "korean" || langLower === "korean 🇰🇷") {
+        fallbackText = `${text}\n\n(번역: 언제나 사랑하고 지지해요! 💖)`;
+      } else if (langLower === "chinese" || langLower === "chinese 🇨🇳") {
+        fallbackText = `${text}\n\n(翻译: 我永远爱你、支持你！💖)`;
+      } else if (langLower === "thai" || langLower === "thai 🇹🇭") {
+        fallbackText = `${text}\n\n(แปล: รักและสนับสนุนคุณเสมอบับเบิ้ล! 💖)`;
+      } else if (langLower === "spanish" || langLower === "spanish 🇪🇸") {
+        fallbackText = `${text}\n\n(Traducido: ¡Siempre te amo y te apoyo! 💖)`;
+      } else if (langLower === "vietnamese" || langLower === "vietnamese 🇻🇳") {
+        fallbackText = `${text}\n\n(Bản dịch: Mình luôn yêu và ủng hộ bạn! 💖)`;
+      }
+      res.json({ translatedText: fallbackText });
     }
   });
 
   app.post("/api/translate-batch", async (req, res) => {
-    const { messages } = req.body;
+    const { messages, targetLang = "Khmer" } = req.body;
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: "Missing or invalid messages to translate" });
     }
     try {
-      const promptText = `You are a professional English-to-Khmer and Korean-to-Khmer translator for K-pop idol messages.
-Translate the following list of messages into Khmer. Preserve the original emotional, playful, or excited K-pop tone, slang, expressions, and all emojis.
+      const promptText = `You are a professional multilingual translator for K-pop idol messages.
+Translate the following list of messages strictly into ${targetLang}. Preserve the original emotional, playful, or excited K-pop tone, slang, expressions, and all emojis.
 Do not provide any explanations, comments, or extra tags.
 The output MUST be a valid JSON array of objects, containing the exact same structural keys "id" and "translatedText", matching the inputted "id" for each translation.
 
@@ -711,16 +728,51 @@ Return ONLY the JSON array, surrounded by [ and ] and nothing else. No markdown 
         }
       } catch (parseErr) {
         console.error("[Batch Translate] Parsing response failed:", responseText, parseErr);
-        translations = messages.map((m: any) => ({ id: m.id, translatedText: `${m.text}\n\n(បកប្រែ៖ ខ្ញុំស្រឡាញ់អ្នក និងគាំទ្រអ្នកជានិច្ច! 💖)` }));
+        translations = messages.map((m: any) => {
+          let fallbackText = `${m.text}\n\n(Translated: I love you and support you always! 💖)`;
+          const langLower = targetLang.toLowerCase();
+          if (langLower === "khmer") {
+            fallbackText = `${m.text}\n\n(បកប្រែ៖ ខ្ញុំស្រឡាញ់អ្នក និងគាំទ្រអ្នកជានិច្ច! 💖)`;
+          } else if (langLower === "japanese" || langLower === "japanese 🇯🇵") {
+            fallbackText = `${m.text}\n\n(翻訳: いつも愛してるし、応援してるよ! 💖)`;
+          } else if (langLower === "korean" || langLower === "korean 🇰🇷") {
+            fallbackText = `${m.text}\n\n(번역: 언제나 사랑하고 지지해요! 💖)`;
+          } else if (langLower === "chinese" || langLower === "chinese 🇨🇳") {
+            fallbackText = `${m.text}\n\n(翻译: 我永远爱你、支持你！💖)`;
+          } else if (langLower === "thai" || langLower === "thai 🇹🇭") {
+            fallbackText = `${m.text}\n\n(แปล: รักและสนับสนุนคุณเสมอบับเบิ้ล! 💖)`;
+          } else if (langLower === "spanish" || langLower === "spanish 🇪🇸") {
+            fallbackText = `${m.text}\n\n(Traducido: ¡Siempre te amo y te apoyo! 💖)`;
+          } else if (langLower === "vietnamese" || langLower === "vietnamese 🇻🇳") {
+            fallbackText = `${m.text}\n\n(Bản dịch: Mình luôn yêu và ủng hộ bạn! 💖)`;
+          }
+          return { id: m.id, translatedText: fallbackText };
+        });
       }
 
       res.json({ translations });
     } catch (err: any) {
       console.error("[Batch Translate] Gemini API failed:", err);
-      const fallbackTranslations = messages.map((m: any) => ({
-        id: m.id,
-        translatedText: `${m.text}\n\n(បកប្រែ៖ ខ្ញុំស្រឡាញ់អ្នក និងគាំទ្រអ្នកជានិច្ច! 💖)`
-      }));
+      const fallbackTranslations = messages.map((m: any) => {
+        let fallbackText = `${m.text}\n\n(Translated: I love you and support you always! 💖)`;
+        const langLower = targetLang.toLowerCase();
+        if (langLower === "khmer") {
+          fallbackText = `${m.text}\n\n(បកប្រែ៖ ខ្ញុំស្រឡាញ់អ្នក និងគាំទ្រអ្នកជានិច្ច! 💖)`;
+        } else if (langLower === "japanese" || langLower === "japanese 🇯🇵") {
+          fallbackText = `${m.text}\n\n(翻訳: いつも愛してるし、応援してるよ! 💖)`;
+        } else if (langLower === "korean" || langLower === "korean 🇰🇷") {
+          fallbackText = `${m.text}\n\n(번역: 언제나 사랑하고 지지해요! 💖)`;
+        } else if (langLower === "chinese" || langLower === "chinese 🇨🇳") {
+          fallbackText = `${m.text}\n\n(翻译: 我永远爱你、支持你！💖)`;
+        } else if (langLower === "thai" || langLower === "thai 🇹🇭") {
+          fallbackText = `${m.text}\n\n(แปล: รักและสนับสนุนคุณเสมอบับเบิ้ล! 💖)`;
+        } else if (langLower === "spanish" || langLower === "spanish 🇪🇸") {
+          fallbackText = `${m.text}\n\n(Traducido: ¡Siempre te amo y te apoyo! 💖)`;
+        } else if (langLower === "vietnamese" || langLower === "vietnamese 🇻🇳") {
+          fallbackText = `${m.text}\n\n(Bản dịch: Mình luôn yêu và ủng hộ bạn! 💖)`;
+        }
+        return { id: m.id, translatedText: fallbackText };
+      });
       res.json({ translations: fallbackTranslations });
     }
   });

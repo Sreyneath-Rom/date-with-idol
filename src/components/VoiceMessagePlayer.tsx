@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Pause, Volume2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -15,6 +15,9 @@ export default function VoiceMessagePlayer({ audioUrl, sender, isActive, onPlay,
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const isScrubbingRef = useRef(false);
+  const trackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Initialize audio element
@@ -28,7 +31,7 @@ export default function VoiceMessagePlayer({ audioUrl, sender, isActive, onPlay,
       };
 
       const onTimeUpdate = () => {
-        if (audioRef.current) {
+        if (audioRef.current && !isScrubbingRef.current) {
           setCurrentTime(audioRef.current.currentTime || 0);
         }
       };
@@ -97,6 +100,41 @@ export default function VoiceMessagePlayer({ audioUrl, sender, isActive, onPlay,
     return `${min}:${sec < 10 ? '0' : ''}${sec}`;
   };
 
+  const updateProgress = useCallback((clientX: number) => {
+    if (!trackRef.current || !audioRef.current || duration === 0) return;
+    const rect = trackRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    const newProgress = x / rect.width;
+    const newTime = newProgress * duration;
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+  }, [duration]);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    if (!trackRef.current || !audioRef.current) return;
+    isScrubbingRef.current = true;
+    setIsScrubbing(true);
+    trackRef.current.setPointerCapture(e.pointerId);
+    updateProgress(e.clientX);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    if (!isScrubbingRef.current) return;
+    updateProgress(e.clientX);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    if (!isScrubbingRef.current) return;
+    isScrubbingRef.current = false;
+    setIsScrubbing(false);
+    if (trackRef.current) {
+      trackRef.current.releasePointerCapture(e.pointerId);
+    }
+  };
+
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
@@ -141,16 +179,33 @@ export default function VoiceMessagePlayer({ audioUrl, sender, isActive, onPlay,
 
       <div className="flex-1 min-w-0 space-y-1">
         {/* Progress track */}
-        <div className="relative w-full h-1.5 rounded-full bg-white/20 overflow-hidden">
+        <div 
+          ref={trackRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          className="relative w-full h-3 rounded-full flex items-center cursor-pointer group"
+        >
+          <div className="absolute w-full h-1.5 bg-white/20 rounded-full overflow-hidden">
+            <div 
+              className={`absolute left-0 top-0 h-full rounded-full ${
+                sender === 'idol' ? 'bg-luxury-gold' : 'bg-luxury-gold'
+              }`}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          {/* Circular handle */}
           <div 
-            className={`absolute left-0 top-0 h-full rounded-full transition-all duration-75 ${
-              sender === 'idol' ? 'bg-luxury-gold' : 'bg-luxury-gold'
-            }`}
-            style={{ width: `${progress}%` }}
+            className={`absolute h-3 w-3 rounded-full bg-white shadow-md border border-black/10 transition-transform origin-center ${isScrubbing ? 'scale-125' : 'scale-0 group-hover:scale-100'}`}
+            style={{ 
+              left: `${progress}%`,
+              transform: `translate(-50%, 0)`,
+            }}
           />
         </div>
 
-        <div className="flex items-center justify-between text-[9px] font-mono opacity-50 select-none">
+        <div className="flex items-center justify-between text-[9px] font-mono opacity-50 select-none pointer-events-none mt-1">
           <span className="font-bold">{formatTime(currentTime)}</span>
           <span className="font-medium">{duration ? formatTime(duration) : '0:00'}</span>
         </div>
